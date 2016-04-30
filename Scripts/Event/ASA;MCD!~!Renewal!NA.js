@@ -1,0 +1,2 @@
+prepareAppForRenewal();
+assessRenewalDecalFee();
