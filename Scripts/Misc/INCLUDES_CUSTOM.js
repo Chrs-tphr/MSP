@@ -4,7 +4,7 @@
 |
 | Usage   : Custom Script Include.  Insert custom EMSE Function below and they will be available to all master scripts
 | 
-| Version 01.20.2016 20.35 pst
+| Version 05.12.2016 08.56 pst
 | Notes   : createRefLicProf - override to default the state if one is not provided
 |
 |         : createRefContactsFromCapContactsAndLink - testing new ability to link public users to new ref contacts
@@ -1285,17 +1285,22 @@ function assessEquipListFee(feeItemCode, columnName, columnValue) { //CG 12/17/2
 function assessEquipListDecalFee() { //CG 12.17.2015 = GC = $100 and has half year discount, HHG = $50.
 	feeAmt = 0;
 	exstngFeeAmt = 0;
-	feeDate = getTodayString();
-	feeStartDate = "6/30/"+ new Date().getFullYear();
-	feeEndDate = "11/01/"+ new Date().getFullYear();
+	feeDate = getTodayJs();
+	feeYear = feeDate.getFullYear();
+	feeStartDate = new Date("6/30/"+ feeYear);
+	feeEndDate = new Date("11/01/"+ feeYear);
 	equipTable = loadASITable("EQUIPMENT LIST");
+	var gcVehicleCount = countASITRows(equipTable, "Vehicle Action", "INCLUDE", "Add Vehicle", "Equipment Use", "EXCLUDE", "Household Goods");
+	var hhgVehicleCount = countASITRows(equipTable, "Vehicle Action", "INCLUDE", "Add Vehicle", "Equipment Use", "INCLUDE", "Household Goods");
+	logDebug("GC Vehicle count: "+gcVehicleCount);
+	logDebug("HHG Vehicle count: "+hhgVehicleCount);
 	if (feeDate > feeStartDate && feeDate < feeEndDate) {
-		feeAmt = countASITRows(equipTable, "Vehicle Action", "INCLUDE", "Add Vehicle", "Equipment Use", "EXCLUDE", "Household Goods")*50;
+		feeAmt = gcVehicleCount*50;
 	}
 	else {
-		feeAmt = countASITRows(equipTable, "Vehicle Action", "INCLUDE", "Add Vehicle", "Equipment Use", "EXCLUDE", "Household Goods")*100;
+		feeAmt = gcVehicleCount*100;
 	}
-	feeAmt += countASITRows(equipTable, "Vehicle Action", "INCLUDE", "Add Vehicle", "Equipment Use", "INCLUDE", "Household Goods")*50;
+	feeAmt += (hhgVehicleCount*50);
 	
 	if (feeExists("DECAL") == true) {
 		exstngFeeAmt = getFeeAmount("DECAL");
@@ -1330,6 +1335,7 @@ function createCertOfAuth() {
             }
             else{
                 certFirstExpYear = certIssueYear;
+                thisLic.setExpiration("12/31/"+certFirstExpYear);
             }
             logDebug("The Certificate of Authority was issued on " + certIssueDate + " and will expire on 12/31/" + certFirstExpYear + ".");
 
@@ -1345,9 +1351,11 @@ function createCertOfAuth() {
 			copyAppSpecific(newLicId,ignoreArr);
 			copyASITables(capId,newLicId);
 			linkMPSCtoPU(mpscNum, capId);
+			editRefLicProfAttribute(mpscNum,"INTRASTATE AUTHORITY EXPIRATIO","12/31/"+certFirstExpYear);//sets expiration year on Ref LP
 			editRefLicProfAttribute(mpscNum,"INTRASTATE AUTHORITY STATUS","Active");
 			editRefLicProfAttribute(mpscNum,"INTRASTATE AUTHORITY STATUS DA",cIDate);
 			editRefLicProfAttribute(mpscNum,"INTRASTATE AUTH APP DATE",fileDate);
+			editLicProfAttribute(newLicId, mpscNum,"INTRASTATE AUTHORITY EXPIRATIO","12/31/"+certFirstExpYear);//sets expiration year on Cert trans LP
 			editLicProfAttribute(newLicId, mpscNum,"INTRASTATE AUTHORITY STATUS","Active");
 			editLicProfAttribute(newLicId, mpscNum,"INTRASTATE AUTHORITY STATUS DA",cIDate);
 			editLicProfAttribute(newLicId, mpscNum,"INTRASTATE AUTH APP DATE",fileDate);
@@ -1369,10 +1377,10 @@ function createCertOfAuth() {
 					newRow["Vehicle Action"] = new asiTableValObj("Vehicle Action", ""/*thisRow["Vehicle Action"].fieldValue*/, "N");
 					newRow["Status"] = new asiTableValObj("Status", thisRow["Status"].fieldValue, "N");
 					newRow["MPSC Decal #"] = new asiTableValObj("MPSC Decal #", thisRow["MPSC Decal #"].fieldValue, "Y");
-					var equipUse = thisRow["Equipment Use"].fieldValue;//gets equipement use to set plate fee instead of copying Plate Fee data
+					var equipUse = thisRow["Equipment Use"].fieldValue;//gets equipment use to set plate fee instead of copying Plate Fee data
 					newRow["Equipment Use"] = new asiTableValObj("Equipment Use", equipUse, "N");
-					if (equipUse == "Household Goods") pFee = "50.00"
-					else pFee = "100.00"
+					if (equipUse == "Household Goods") pFee = "50.00";
+					else pFee = "100.00";
 					newRow["Plate Fee"] = new asiTableValObj("Plate Fee", pFee, "N");
 					newTable.push(newRow);
 				}
@@ -1543,7 +1551,7 @@ function queryConflictVIN() {
 	for ( i in lpList) {
 		//Only get the 1st LIC # (per Chris)
 		MPSCnumber = lpList[i].getLicenseNbr()
-		break
+		break;
 	}
 	
 
@@ -1611,7 +1619,7 @@ function queryConflictVIN() {
 				var dupLpList = getLicenseProfessional(dupCapId)
 				for ( i in dupLpList) {
 					dupMPSCnumber = dupLpList[i].getLicenseNbr()
-					break
+					break;
 				}
 
 				if (MPSCnumber != dupMPSCnumber) {
@@ -1867,14 +1875,11 @@ function createRefLicProfFromLicProfMotorCarrier() {
 			editRefLicProfAttribute(rlpId,"PORTABLE STORAGE UNITS",AInfo["Portable Storage Units"]);
 		
 		modifyRefLPAndSubTran(capId, newLic);
-		
 	}
-
-	return rlpId
+	return rlpId;
 }
 
-function updateCert(updateType) {
-	
+function updateCert(updateType){
 	pId = getParent();
 	existingCarrierNum = pId.getCustomID();
 	var cLic = getRefLicenseProf(existingCarrierNum);
@@ -1894,7 +1899,7 @@ function updateCert(updateType) {
 			/* LP Template to LP Template */
 			if (newBusinessType && newBusinessType != "") {
 				editRefLicProfAttribute(existingCarrierNum,"OWNERSHIP TYPE", newBusinessType);
-	                        cLic = getRefLicenseProf(existingCarrierNum);
+				cLic = getRefLicenseProf(existingCarrierNum);
 			}
 			cLic.setBusinessName(newCarrierName);
 			cLic.setBusinessName2(newCorpName);
@@ -1980,14 +1985,14 @@ function updateCert(updateType) {
 			editRefLicProfAttribute(existingCarrierNum, "INTRASTATE AUTHORITY STATUS DA", dateAdd(effDate, 0));
 			cLic = getRefLicenseProf(existingCarrierNum);
 			break;
-	    case "PERMDISCON":
+		case "PERMDISCON":
 			effDate = AInfo["Desired Effective Date"];
 			updateAppStatus("Permanently Discontinued", "", pId);
 			editRefLicProfAttribute(existingCarrierNum, "INTRASTATE AUTHORITY STATUS", "Permanently Discontinued");
 			editRefLicProfAttribute(existingCarrierNum, "INTRASTATE AUTHORITY STATUS DA", dateAdd(effDate, 0));
 			cLic = getRefLicenseProf(existingCarrierNum);
 			break;
-	    case "REINSTATE":
+		case "REINSTATE":
 			effDate = AInfo["Reinstate Service Effective Date"];
 			updateAppStatus("Active", "", pId);
 			editRefLicProfAttribute(existingCarrierNum, "INTRASTATE AUTHORITY STATUS", "Active");
@@ -2016,8 +2021,9 @@ function modifyRefLPAndSubTran(itemCap, newLic) {
 	// copy lic number from reference LP to transaction LP 
 	var capLicenseResult = aa.licenseProfessional.getLicenseProf(itemCap);
 	var capLicenseArr = new Array();
-	if (capLicenseResult.getSuccess())
-		{ capLicenseArr = capLicenseResult.getOutput();  }
+	if(capLicenseResult.getSuccess()){
+		capLicenseArr = capLicenseResult.getOutput();
+	}
 		
 	if(capLicenseArr != null){
 		for(capLic in capLicenseArr){
@@ -2068,7 +2074,6 @@ function populateDecalNumbers() {
 		newRow["Plate Fee"] = new asiTableValObj("Plate Fee", thisRow["Plate Fee"].fieldValue, "N");
 		newTable.push(newRow);
 	}
-	//updateASITable("EQUIPMENT LIST", newTable)
 	removeASITable("EQUIPMENT LIST");
 	addASITable("EQUIPMENT LIST", newTable);
 }
@@ -2131,6 +2136,12 @@ function getTodayString(){
     var toDay = new Date();
     var tDay = ((toDay.getMonth()+1)+"/"+toDay.getDate()+"/"+toDay.getFullYear());
     return tDay;
+}
+
+function getTodayJs(){
+    var toDay = new Date();
+    var tDayJs = new Date((toDay.getMonth()+1)+"/"+toDay.getDate()+"/"+toDay.getFullYear());
+    return tDayJs;
 }
 
 function updateRefLpFromTransLp() {
@@ -2240,4 +2251,35 @@ function updateRefLpFromTransLp() {
 			editRefLicProfAttribute(rlpId,"PORTABLE STORAGE UNITS",AInfo["Portable Storage Units"]);	
 	}
 	return rlpId
+}
+
+function activeVehicleCheck(){
+	if(wfTask == "Certification" && wfStatus == "Issued"){
+		equipTable = loadASITable("EQUIPMENT LIST");
+		var iaVehicles = 0;
+		iaVehicles = countASITRows(equipTable, "Status", "EXCLUDE", "Active")//CG 12.17.2015 -- optional parameters = cName, filterType, cValue, cName2, filterType2, cValue2
+		if(iaVehicles > 0){
+			var iavmsg = "There is "+iaVehicles+" vehicle(s) not set to ACTIVE. Canceled Issuance, please update ASIT.";
+			logDebug(iavmsg);
+			showMessage = true;
+			comment(iavmsg);
+			cancel = true;
+		}
+	}
+}
+
+function updateCertEqListFromRenewal(){
+	logDebug("Trying to get cap id from license");
+	var capID = getCapId();
+	var partialCapID = getPartialCapID(capID);
+	var parentLicenseCAPID = getParentLicenseCapID(capID)
+	if (parentLicenseCAPID != null) {
+		logDebug("Parent CAP ID :" + parentLicenseCAPID);
+		removeASITable("EQUIPMENT LIST", parentLicenseCAPID);
+		copyASITables(capId, parentLicenseCAPID);
+		var pAltId = parentLicenseCAPID.getCustomID();
+		logDebug("Copied ASIT from "+capId+" to "+pAltId);
+	}else{
+		logDebug("Could not get pCapId for Renewal");
+	}
 }
