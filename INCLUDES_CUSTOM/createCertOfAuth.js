@@ -20,6 +20,7 @@ function createCertOfAuth() {
             }
             else{
                 certFirstExpYear = certIssueYear;
+                thisLic.setExpiration("12/31/"+certFirstExpYear);
             }
             logDebug("The Certificate of Authority was issued on " + certIssueDate + " and will expire on 12/31/" + certFirstExpYear + ".");
 
@@ -35,9 +36,11 @@ function createCertOfAuth() {
 			copyAppSpecific(newLicId,ignoreArr);
 			copyASITables(capId,newLicId);
 			linkMPSCtoPU(mpscNum, capId);
+			editRefLicProfAttribute(mpscNum,"INTRASTATE AUTHORITY EXPIRATIO","12/31/"+certFirstExpYear);//sets expiration year on Ref LP
 			editRefLicProfAttribute(mpscNum,"INTRASTATE AUTHORITY STATUS","Active");
 			editRefLicProfAttribute(mpscNum,"INTRASTATE AUTHORITY STATUS DA",cIDate);
 			editRefLicProfAttribute(mpscNum,"INTRASTATE AUTH APP DATE",fileDate);
+			editLicProfAttribute(newLicId, mpscNum,"INTRASTATE AUTHORITY EXPIRATIO","12/31/"+certFirstExpYear);//sets expiration year on Cert trans LP
 			editLicProfAttribute(newLicId, mpscNum,"INTRASTATE AUTHORITY STATUS","Active");
 			editLicProfAttribute(newLicId, mpscNum,"INTRASTATE AUTHORITY STATUS DA",cIDate);
 			editLicProfAttribute(newLicId, mpscNum,"INTRASTATE AUTH APP DATE",fileDate);
@@ -59,10 +62,10 @@ function createCertOfAuth() {
 					newRow["Vehicle Action"] = new asiTableValObj("Vehicle Action", ""/*thisRow["Vehicle Action"].fieldValue*/, "N");
 					newRow["Status"] = new asiTableValObj("Status", thisRow["Status"].fieldValue, "N");
 					newRow["MPSC Decal #"] = new asiTableValObj("MPSC Decal #", thisRow["MPSC Decal #"].fieldValue, "Y");
-					var equipUse = thisRow["Equipment Use"].fieldValue;//gets equipement use to set plate fee instead of copying Plate Fee data
+					var equipUse = thisRow["Equipment Use"].fieldValue;//gets equipment use to set plate fee instead of copying Plate Fee data
 					newRow["Equipment Use"] = new asiTableValObj("Equipment Use", equipUse, "N");
-					if (equipUse == "Household Goods") pFee = "50.00"
-					else pFee = "100.00"
+					if (equipUse == "Household Goods") pFee = "50.00";
+					else pFee = "100.00";
 					newRow["Plate Fee"] = new asiTableValObj("Plate Fee", pFee, "N");
 					newTable.push(newRow);
 				}
