@@ -29,7 +29,6 @@ function populateDecalNumbers() {
 		newRow["Plate Fee"] = new asiTableValObj("Plate Fee", thisRow["Plate Fee"].fieldValue, "N");
 		newTable.push(newRow);
 	}
-	//updateASITable("EQUIPMENT LIST", newTable)
 	removeASITable("EQUIPMENT LIST");
 	addASITable("EQUIPMENT LIST", newTable);
 }
