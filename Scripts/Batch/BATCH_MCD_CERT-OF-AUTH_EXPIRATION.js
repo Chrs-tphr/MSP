@@ -119,15 +119,15 @@ if (emailAddress.length)
 | <===========END=Main=Loop================>
 /-----------------------------------------------------------------------------------------------------*/
 
-function mainProcess() {
-	var updatedRecs = 0
+function mainProcess(){
+	var updatedRecs = 0;
 	var today = new Date();
-	var thisYear = today.getFullYear()
-	aaExpDate = aa.util.parseDate("12/31/"+thisYear) 
-	//aaExpDate = aa.util.parseDate("04/21/2016")		//TESTING
+	var thisYear = today.getFullYear();
+	aaExpDate = aa.util.parseDate("12/31/"+thisYear);
+	//aaExpDate = aa.util.parseDate("04/21/2016");//TESTING
 
 	var capModelResult = aa.cap.getCapModel();
-	if (capModelResult.getSuccess()) {
+	if (capModelResult.getSuccess()){
 		var capModel = capModelResult.getOutput();
 		capModel.setCapStatus(appStatus);
 		var capTypeModel = capModel.getCapType();
@@ -136,67 +136,68 @@ function mainProcess() {
 		if (appSubtype != "*") capTypeModel.setSubType(appSubtype);
 		if (appCategory != "*") capTypeModel.setCategory(appCategory);
 		capModel.setCapType(capTypeModel);
-		capExpModel = capModel.getB1ExpirationModel()
-		capExpModel.setExpStatus(expStatus)	
-		capExpModel.setExpDate(aaExpDate)
-		capModel.setB1ExpirationModel(capExpModel)
+		capExpModel = capModel.getB1ExpirationModel();
+		capExpModel.setExpStatus(expStatus);
+		capExpModel.setExpDate(aaExpDate);
+		capModel.setB1ExpirationModel(capExpModel);
 		capResult = aa.cap.getCapIDListByCapModel(capModel);
 	}
-	if (!capResult.getSuccess()) {
-		logDebug("ERROR: Getting records, reason is: " + capResult.getErrorMessage()) ;
-		return false
+	if (!capResult.getSuccess()){
+		logDebug("ERROR: Getting records, reason is: " + capResult.getErrorMessage());
+		return false;
 	} 
 
 	recList = capResult.getOutput();
-	logDebug("Processing " + recList.length + " " + appType + " record(s)")
-	for (i in recList)  {
-		statusUCR = ""
-		oppType = ""
-		if (elapsed() > maxSeconds) {
+	logDebug("Processing " + recList.length + " " + appType + " record(s)");
+	for (i in recList){
+		statusUCR = "";
+		oppType = "";
+		if (elapsed() > maxSeconds){
 			// only continue if time hasn't expired
-			logDebug("A script time-out has caused partial completion of this process.  Please re-run.  " + elapsed() + " seconds elapsed, " + maxSeconds + " allowed.") ;
-			timeExpired = true ;
+			logDebug("A script time-out has caused partial completion of this process.  Please re-run.  " + elapsed() + " seconds elapsed, " + maxSeconds + " allowed.");
+			timeExpired = true;
 			break;
 		}
-		thisRec =recList[i]
+		thisRec =recList[i];
 		capId = thisRec.getCapID();
-		tmpCapObj = aa.cap.getCap(capId)
+		tmpCapObj = aa.cap.getCap(capId);
 		if (!tmpCapObj.getSuccess()){
-			logDebug("WARNING: Could not get Cap Object for "+capId)
+			logDebug("WARNING: Could not get Cap Object for "+capId);
 			continue;
 		} 
-		capModelObj = tmpCapObj.getOutput().getCapModel()
-		altId = capModelObj.getAltID()
+		capModelObj = tmpCapObj.getOutput().getCapModel();
+		altId = capModelObj.getAltID();
 		
 		//Check ASI field Operation Type
-		asiObj = aa.appSpecificInfo.getAppSpecificInfos(capId, "MOTOR CARRIER OPERATIONS", "Operation Type")
-		oppType = asiObj.getSuccess() && asiObj.getOutput().length > 0 ? ""+(asiObj.getOutput())[0].getChecklistComment() : ""
+		asiObj = aa.appSpecificInfo.getAppSpecificInfos(capId, "MOTOR CARRIER OPERATIONS", "Operation Type");
+		oppType = asiObj.getSuccess() && asiObj.getOutput().length > 0 ? ""+(asiObj.getOutput())[0].getChecklistComment() : "";
 		
 		if (oppType != "General Commodities") continue;
 		
 		//Check LP Template field INTERSTATE UCR STATUS
 		capLicenseResult = aa.licenseScript.getLicenseProf(capId);
-		capLicenseArr = new Array()
-		if (capLicenseResult.getSuccess())
+		capLicenseArr = new Array();
+		if (capLicenseResult.getSuccess()){
 			capLicenseArr = capLicenseResult.getOutput();
+		}
 			
-		if (capLicenseArr.length < 1) {
+		if (capLicenseArr.length < 1){
 			logDebug("WARNING: no license professional available on the application: " + altId); 
 			continue;
 		}
 
-		attrList = capLicenseArr[0].getAttributes()
-		for ( i in attrList ) {
-			thisAttr = attrList[i]
-			if( matches(""+thisAttr.getAttributeName(),"INTERSTATE UCR STATUS")) {
-				statusUCR = ""+thisAttr.getAttributeValue()
+		attrList = capLicenseArr[0].getAttributes();
+		for (i in attrList){
+			thisAttr = attrList[i];
+			if ( matches(""+thisAttr.getAttributeName(),"INTERSTATE UCR STATUS")){
+				statusUCR = ""+thisAttr.getAttributeValue();
 				break;
 			}
 		}
 		if (statusUCR != "Active") continue;
-		//logDebug(altId + " [Operation Type: " + oppType + "] [Interstate UCR Status: " + statusUCR + "]")
-		licEditExpInfo("Active","12/31/"+(thisYear+1))
-		updatedRecs++
+		//logDebug(altId + " [Operation Type: " + oppType + "] [Interstate UCR Status: " + statusUCR + "]");
+		licEditExpInfo("Active","12/31/"+(thisYear+1));
+		updatedRecs++;
 	}
 	logDebug("Successfully updated " + updatedRecs + " record(s)")
 }
