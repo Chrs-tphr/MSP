@@ -164,7 +164,7 @@ function mainProcess() {
 		tmpCapObj = aa.cap.getCap(capId)
 		if (!tmpCapObj.getSuccess()){
 			logDebug("WARNING: Could not get Cap Object for "+capId)
-			continue
+			continue;
 		} 
 		capModelObj = tmpCapObj.getOutput().getCapModel()
 		altId = capModelObj.getAltID()
@@ -176,14 +176,14 @@ function mainProcess() {
 		if (oppType != "General Commodities" && oppType != "Household Goods") continue // Commented out 10/04/2016
 		
 		//Check LP Template field INTERSTATE UCR STATUS
-		capLicenseResult = aa.licenseScript.getLicenseProf(capId);
+		var capLicenseResult = aa.licenseScript.getLicenseProf(capId);
 		capLicenseArr = new Array()
 		if (capLicenseResult.getSuccess())
 			capLicenseArr = capLicenseResult.getOutput();
 			
 		if (capLicenseArr.length < 1) {
 			logDebug("WARNING: no license professional available on the application: " + altId); 
-			continue 
+			continue;
 		}
 
 		attrList = capLicenseArr[0].getAttributes()
@@ -191,7 +191,7 @@ function mainProcess() {
 			thisAttr = attrList[i]
 			if( matches(""+thisAttr.getAttributeName(),"INTERSTATE UCR STATUS")) {
 				statusUCR = ""+thisAttr.getAttributeValue()
-				break
+				break;
 			}
 		}
 		if (oppType == "General Commodities" && (statusUCR !="Active" || statusUCR =="" )) { //edit if statusUCR is Not Active or is Null edit the  expiration for General Commodities type
