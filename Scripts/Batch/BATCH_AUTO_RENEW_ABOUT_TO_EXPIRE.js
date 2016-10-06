@@ -162,7 +162,7 @@ function mainProcess(){
 			timeExpired = true;
 			break;
 		}
-		thisRec =recList[i];
+		thisRec = recList[i];
 		capId = thisRec.getCapID();
 		tmpCapObj = aa.cap.getCap(capId);
 		if (!tmpCapObj.getSuccess()){
@@ -173,12 +173,12 @@ function mainProcess(){
 		altId = capModelObj.getAltID();
 
 		// Filter by CAP Status
-		var capStatus = cap.getCapStatus();
-		if (exists(capStatus, skipAppStatusArray)) {
-			capFilterStatus++;
-			logDebug(altId + ": skipping due to application status of " + capStatus)
-			continue;
-		}
+//		var capStatus = recList.getCapStatus();
+//		if (exists(capStatus, skipAppStatusArray)) {
+//			capFilterStatus++;
+//			logDebug(altId + ": skipping due to application status of " + capStatus)
+//			continue;
+//		}
 		
 		//Check ASI field Operation Type
 		asiObj = aa.appSpecificInfo.getAppSpecificInfos(capId, "MOTOR CARRIER OPERATIONS", "Operation Type");
@@ -205,12 +205,14 @@ function mainProcess(){
 		}
 		
 		if (oppType == "General Commodities" && statusUCR == "Active"){//Auto renewal of carriers with Active UCR
+			logDebug(br+"CVED: "+altId+", ");
 			licEditExpInfo("Active","12/31/"+(thisYear+1));
 			updatedRecs++;
 		}else{
+			logDebug(br+"CVED: "+altId+", ");
 			licEditExpInfo("About to Expire","12/31/"+(thisYear));//Update all other carriers to About to Expire
 			updatedRecs++;
 		}
 	}
-	logDebug("Successfully updated " + updatedRecs + " record(s)")
+	logDebug(br+"Successfully updated " + updatedRecs + " record(s)")
 }
