@@ -2269,17 +2269,23 @@ function activeVehicleCheck(){
 }
 
 function updateCertEqListFromRenewal(){
-	logDebug("Trying to get cap id from license");
+	logDebug("Trying to get cap id from Renewal");
 	var capID = getCapId();
-	var partialCapID = getPartialCapID(capID);
-	var parentLicenseCAPID = getParentLicenseCapID(capID)
-	if (parentLicenseCAPID != null) {
-		logDebug("Parent CAP ID :" + parentLicenseCAPID);
-		removeASITable("EQUIPMENT LIST", parentLicenseCAPID);
-		copyASITables(capId, parentLicenseCAPID);
-		var pAltId = parentLicenseCAPID.getCustomID();
-		logDebug("Copied ASIT from "+capId+" to "+pAltId);
+	logDebug("Renewal capID: "+capID);
+	logDebug("Trying to get cap id of carriers Certificate of Authority");
+	var result = aa.cap.getProjectByChildCapID(capID, "Renewal", "Complete");
+	if(result.getSuccess()){
+		projectScriptModels = result.getOutput();
+		projectScriptModel = projectScriptModels[0];
+		var cCapID = projectScriptModel.getProjectID();
+	}
+	
+	if (cCapID != null) {
+		logDebug("Found Certificate of Authority: "+cCapID);
+		logDebug("Replacing Eq List on Certificate with Eq List from Renewal");
+		removeASITable("EQUIPMENT LIST", cCapID);
+		copyASITables(capId, cCapID);
 	}else{
-		logDebug("Could not get pCapId for Renewal");
+		logDebug("Did not find Certificate of Authority for Renewal");
 	}
 }
