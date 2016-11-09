@@ -1,4 +1,4 @@
-function createCertOfAuth() {
+function createCertOfAuth() {//CO rollback version
 	mpscNum = getMPSCNumFromLP();
 	if (mpscNum != null) {
 	 	newLicId = createParent(appTypeArray[0], appTypeArray[1], "Certificate of Authority", "NA",null);
