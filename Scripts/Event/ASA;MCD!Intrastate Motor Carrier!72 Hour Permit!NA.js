@@ -1,9 +1,9 @@
 if(AInfo("Start Date") <= dateAdd(null,0) && AInfo("End Date") >= dateAdd(null,0)){//set initial 72 Hour Permit status
 	updateAppStatus("Active", "set by script");
-	}else if(AInfo("Start Date") > dateAdd(null, 0)){
-		updateAppStatus("Pending", "set by script");
-	}else{
-		updateAppStatus("Expired", "set by script");
+}else if(AInfo("Start Date") > dateAdd(null, 0)){
+	updateAppStatus("Pending", "set by script");
+}else{
+	updateAppStatus("Expired", "set by script");
 }
 
 /*original standard choice in SUPP
