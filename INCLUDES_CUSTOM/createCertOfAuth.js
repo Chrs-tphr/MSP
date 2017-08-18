@@ -1,5 +1,10 @@
 function createCertOfAuth() {//CO rollback version
 	mpscNum = getMPSCNumFromLP();
+	//check for existing record with this CVED number
+		//validate record status is (Revoked, ???)
+			//get existing record and relate to this application
+				//update existing Certificate of Authority instead of creating new record
+	
 	if (mpscNum != null) {
 	 	newLicId = createParent(appTypeArray[0], appTypeArray[1], "Certificate of Authority", "NA",null);
 		if (newLicId) {
