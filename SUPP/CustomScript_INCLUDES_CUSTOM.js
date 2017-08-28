@@ -4,7 +4,7 @@
 |
 | Usage   : Custom Script Include.  Insert custom EMSE Function below and they will be available to all master scripts
 | 
-| Version 08.28.2017 08.56 pst
+| Version 08.28.2017 08.27 pst
 | Notes   : createRefLicProf - override to default the state if one is not provided
 |
 |         : createRefContactsFromCapContactsAndLink - testing new ability to link public users to new ref contacts
@@ -13,7 +13,8 @@
 | Defect Updates
 |         : 10.25.2016 - 008: Updated updateCertEqListFromRenewal() to work on "Completed" renewals
 |         : 08.08.2017 - 001: Added doCreateRefLP(), checks Application Review for previous Incomplete or Accepted status checkForExistingCertOfAuth()
-|         : 08.28.2017 - 001: Added checkForExistingCertOfAuth() that returns true if record is found and false if no record found
+|         : 08.28.2017 - 001: Updated createCertOfAuth() to handle existing Cert scenario. Need to enhance to update existing if found.
+|         : 08.28.2017 - 002: Added checkForExistingCertOfAuth() that returns true if record is found and false if no record found
 |
 /------------------------------------------------------------------------------------------------------*/
 
