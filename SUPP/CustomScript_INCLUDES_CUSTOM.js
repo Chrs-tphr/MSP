@@ -4,7 +4,7 @@
 |
 | Usage   : Custom Script Include.  Insert custom EMSE Function below and they will be available to all master scripts
 | 
-| Version 08.08.2017 08.56 pst
+| Version 08.28.2017 08.56 pst
 | Notes   : createRefLicProf - override to default the state if one is not provided
 |
 |         : createRefContactsFromCapContactsAndLink - testing new ability to link public users to new ref contacts
@@ -12,7 +12,8 @@
 |
 | Defect Updates
 |         : 10.25.2016 - 008: Updated updateCertEqListFromRenewal() to work on "Completed" renewals
-|         : 08.08.2017 - 001: Added doCreateRefLP(), checks Application Review for previous Incomplete or Accepted status
+|         : 08.08.2017 - 001: Added doCreateRefLP(), checks Application Review for previous Incomplete or Accepted status checkForExistingCertOfAuth()
+|         : 08.28.2017 - 001: Added checkForExistingCertOfAuth() that returns true if record is found and false if no record found
 |
 /------------------------------------------------------------------------------------------------------*/
 
@@ -2453,4 +2454,17 @@ function doCreateRefLP(){
 		logDebug("Error getting task history : " + histResult.getErrorMessage());
 	}
 	return true;
+}
+
+function checkForExistingCertOfAuth(){
+	var exists = false;
+	mpscNum = getMPSCNumFromLP();
+	if(mpscNum != null){
+		var existResult = aa.cap.getCapID(mpscNum).getOutput();
+		if(existResult){
+			logDebug("found existing certificate of authority")
+			exists = true;
+		}
+	}
+	return exists;
 }
