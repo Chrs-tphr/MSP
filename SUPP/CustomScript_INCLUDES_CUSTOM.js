@@ -1403,6 +1403,9 @@ function createCertOfAuth() {
 		}else{
 			logDebug("Certificate of Authority has already been issued for this CVED number");
 		}
+		if(existResult){
+			//run reinstate script
+		}
 	}
 }
 
