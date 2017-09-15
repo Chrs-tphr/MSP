@@ -1,15 +1,6 @@
-/******* Testing *******
-aa.env.setValue("appGroup","MCD");
-aa.env.setValue("appTypeType","Intrastate Motor Carrier");
-aa.env.setValue("appSubtype","Certificate of Authority");
-aa.env.setValue("appCategory","NA");
-aa.env.setValue("skipAppStatus","Expired,Permanently Discontinued,Revoked,Suspended");
-aa.env.setValue("appStatus","Active")
-aa.env.setValue("expStatus","Active")
-***********************/
 /*------------------------------------------------------------------------------------------------------/
-| Program: Batch Expiration.js  Trigger: Batch
-| Client: Michigan MCD
+| Program: BATCH_UPDATE_CERTIFICATE_OF_AUTHORITY_UCR_RENEWAL_OR_ABOUT_TO_EXPIRE.js  Trigger: Batch
+| Client: Michigan MSP
 |
 | Desc: WHEN: MCD/Intrastate Motor Carrier/Certificate of Authority/NA
 |		(Renewal Info::Expiration Status) = "Active" and (Renewal Info::Expiration Date) = "12/31/current year".
@@ -19,6 +10,17 @@ aa.env.setValue("expStatus","Active")
 |
 |		ELSE: Update Expiration Status to About to Expire.
 /------------------------------------------------------------------------------------------------------*/
+
+/******* Testing *******
+aa.env.setValue("appGroup","MCD");
+aa.env.setValue("appTypeType","Intrastate Motor Carrier");
+aa.env.setValue("appSubtype","Certificate of Authority");
+aa.env.setValue("appCategory","NA");
+aa.env.setValue("skipAppStatus","Expired,Permanently Discontinued,Revoked,Suspended");
+aa.env.setValue("appStatus","Active")
+aa.env.setValue("expStatus","Active")
+***********************/
+
 /*------------------------------------------------------------------------------------------------------/
 |
 | START: USER CONFIGURABLE PARAMETERS
@@ -87,6 +89,8 @@ var expStatus = getParam("expStatus");
 var emailAddress = getParam("emailAddress");					// email to send report
 var sendEmailToContactTypes = getParam("sendEmailToContactTypes");// send out emails?
 var emailTemplate = getParam("emailTemplate");					// email Template
+var runAsTest = getParam("runAsTest");							// use Y to use test records, use N for all records
+var testRecordArray = getParam("testRecords").split(",");		// use these test Records instead of a full run
 
 /*----------------------------------------------------------------------------------------------------/
 |
@@ -127,7 +131,7 @@ function mainProcess(){
 	var updatedRecs = 0;
 	var today = new Date();
 	var thisYear = today.getFullYear();
-	aaExpDate = aa.util.parseDate("12/31/"+thisYear);
+	aaExpDate = aa.util.parseDate("12/31/"+thisYear-1);
 	//aaExpDate = aa.util.parseDate("04/21/2016");//TESTING
 
 	var capModelResult = aa.cap.getCapModel();
@@ -172,6 +176,13 @@ function mainProcess(){
 		capModelObj = tmpCapObj.getOutput().getCapModel();
 		altId = capModelObj.getAltID();
 
+		//filter for test records
+		if(matches(runAsTest,"Y","Yes")){
+			if(!exists(altId,testRecordArray)){
+				continue;
+			}
+		}
+
 		// Filter by CAP Status
 		var capStatus = thisRec.getCapStatus();
 		if (exists(capStatus, skipAppStatusArray)) {
@@ -202,17 +213,17 @@ function mainProcess(){
 				statusUCR = ""+thisAttr.getAttributeValue();
 				break;
 			}
-		}
-		
+		}	
 		if (oppType == "General Commodities" && statusUCR == "Active"){//Auto renewal of carriers with Active UCR
 			logDebug(br+"CVED: "+altId+", ");
-			licEditExpInfo("Active","12/31/"+(thisYear+1));
-			updatedRecs++;
-		}else{
-			logDebug(br+"CVED: "+altId+", ");
-			licEditExpInfo("About to Expire","12/31/"+(thisYear));//Update all other carriers to About to Expire
+			licEditExpInfo("Active","12/31/"+(thisYear/*+1*/));
 			updatedRecs++;
 		}
+		else{
+			logDebug(br+"CVED: "+altId+", ");
+			licEditExpInfo("About to Expire","12/31/"+(thisYear-1));//Update all other carriers to About to Expire
+			updatedRecs++;
+		}	
 	}
 	logDebug(br+"Successfully updated " + updatedRecs + " record(s)")
 }

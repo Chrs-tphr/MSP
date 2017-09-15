@@ -3,6 +3,7 @@ aa.env.setValue("appGroup","MCD");
 aa.env.setValue("appTypeType","Intrastate Motor Carrier");
 aa.env.setValue("appSubtype","Certificate of Authority");
 aa.env.setValue("appCategory","NA");
+aa.env.setValue("skipAppStatus","Expired,Permanently Discontinued,Revoked,Suspended");
 aa.env.setValue("appStatus","Active")
 aa.env.setValue("expStatus","Active")
 ***********************/
@@ -15,6 +16,8 @@ aa.env.setValue("expStatus","Active")
 |		and (ASI::MOTOR CARRIER OPERATIONS::Operation Type) = General Commodities) and (LP::Interstate UCR Status = Active)
 | 
 |	 	THEN: Update expiration status and date. Set expiration status to "Active" and expiration date to "Expiration Date + 1 year".
+|
+|		ELSE: Update Expiration Status to About to Expire.
 /------------------------------------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------------------------------------/
 |
@@ -78,6 +81,7 @@ var appGroup = getParam("appGroup");							//   app Group to process {Licenses}
 var appTypeType = getParam("appTypeType");						//   app type to process {Rental License}
 var appSubtype = getParam("appSubtype");						//   app subtype to process {NA}
 var appCategory = getParam("appCategory");						//   app category to process {NA}
+var skipAppStatusArray = getParam("skipAppStatus").split(","); //   Skip records with one of these application statuses
 var appStatus = getParam("appStatus");
 var expStatus = getParam("expStatus");
 var emailAddress = getParam("emailAddress");					// email to send report
@@ -158,7 +162,7 @@ function mainProcess(){
 			timeExpired = true;
 			break;
 		}
-		thisRec =recList[i];
+		thisRec = recList[i];
 		capId = thisRec.getCapID();
 		tmpCapObj = aa.cap.getCap(capId);
 		if (!tmpCapObj.getSuccess()){
@@ -167,13 +171,19 @@ function mainProcess(){
 		} 
 		capModelObj = tmpCapObj.getOutput().getCapModel();
 		altId = capModelObj.getAltID();
+
+		// Filter by CAP Status
+//		var capStatus = recList.getCapStatus();
+//		if (exists(capStatus, skipAppStatusArray)) {
+//			capFilterStatus++;
+//			logDebug(altId + ": skipping due to application status of " + capStatus)
+//			continue;
+//		}
 		
 		//Check ASI field Operation Type
 		asiObj = aa.appSpecificInfo.getAppSpecificInfos(capId, "MOTOR CARRIER OPERATIONS", "Operation Type");
 		oppType = asiObj.getSuccess() && asiObj.getOutput().length > 0 ? ""+(asiObj.getOutput())[0].getChecklistComment() : "";
-		
-		if (oppType != "General Commodities") continue;
-		
+
 		//Check LP Template field INTERSTATE UCR STATUS
 		capLicenseResult = aa.licenseScript.getLicenseProf(capId);
 		capLicenseArr = new Array();
@@ -182,8 +192,7 @@ function mainProcess(){
 		}
 			
 		if (capLicenseArr.length < 1){
-			logDebug("WARNING: no license professional available on the application: " + altId); 
-			continue;
+			logDebug("WARNING: no license professional available on the application: " + altId);
 		}
 
 		attrList = capLicenseArr[0].getAttributes();
@@ -193,11 +202,22 @@ function mainProcess(){
 				statusUCR = ""+thisAttr.getAttributeValue();
 				break;
 			}
+		}	
+		if (oppType == "General Commodities" && statusUCR == "Active"){//Auto renewal of carriers with Active UCR
+			logDebug(br+"CVED: "+altId+", ");
+			licEditExpInfo("Active","12/31/"+(thisYear+1));
+			updatedRecs++;
 		}
-		if (statusUCR != "Active") continue;
-		//logDebug(altId + " [Operation Type: " + oppType + "] [Interstate UCR Status: " + statusUCR + "]");
-		licEditExpInfo("Active","12/31/"+(thisYear+1));
-		updatedRecs++;
+		else if(oppType == "General Commodities" && statusUCR !="Active"){ //Auto renewal of carriers with NULL UCR
+		    logDebug(br+"CVED: "+altId+", ");
+			licEditExpInfo("About to Expire","12/31/"+(thisYear));//Update these carriers to About to Expire
+			updatedRecs++;
+		}
+		else{
+			logDebug(br+"CVED: "+altId+", ");
+			licEditExpInfo("About to Expire","12/31/"+(thisYear));//Update all other carriers to About to Expire
+			updatedRecs++;
+		}	
 	}
-	logDebug("Successfully updated " + updatedRecs + " record(s)")
+	logDebug(br+"Successfully updated " + updatedRecs + " record(s)")
 }

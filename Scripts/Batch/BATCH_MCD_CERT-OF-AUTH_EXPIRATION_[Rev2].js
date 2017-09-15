@@ -173,7 +173,7 @@ function mainProcess(){
 		altId = capModelObj.getAltID();
 
 		// Filter by CAP Status
-		var capStatus = thisRec.getCapStatus();
+		var capStatus = recList.getCapStatus();
 		if (exists(capStatus, skipAppStatusArray)) {
 			capFilterStatus++;
 			logDebug(altId + ": skipping due to application status of " + capStatus)
@@ -202,17 +202,22 @@ function mainProcess(){
 				statusUCR = ""+thisAttr.getAttributeValue();
 				break;
 			}
-		}
-		
+		}	
 		if (oppType == "General Commodities" && statusUCR == "Active"){//Auto renewal of carriers with Active UCR
 			logDebug(br+"CVED: "+altId+", ");
 			licEditExpInfo("Active","12/31/"+(thisYear+1));
 			updatedRecs++;
-		}else{
+		}
+		else if(oppType == "General Commodities" && statusUCR !="Active"){ //Auto renewal of carriers with NULL UCR
+		    logDebug(br+"CVED: "+altId+", ");
+			licEditExpInfo("About to Expire","12/31/"+(thisYear));//Update these carriers to About to Expire
+			updatedRecs++;
+		}
+		else{
 			logDebug(br+"CVED: "+altId+", ");
 			licEditExpInfo("About to Expire","12/31/"+(thisYear));//Update all other carriers to About to Expire
 			updatedRecs++;
-		}
+		}	
 	}
 	logDebug(br+"Successfully updated " + updatedRecs + " record(s)")
 }
