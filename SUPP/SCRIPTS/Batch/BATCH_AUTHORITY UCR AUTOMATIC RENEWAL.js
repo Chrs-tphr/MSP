@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------------------------------/
-| Program: BATCH_AUTHORITY EXPIRATION AND RECORD STATUS UPDATE.js  Trigger: Batch
+| Program: BATCH_AUTHORITY UCR AUTOMATIC RENEWAL.js  Trigger: Batch
 | Client:
 |
 | Version 1.0 - Base Version. 11/01/08 JHS
@@ -90,16 +90,16 @@ if(batchJobResult.getSuccess()){
 |
 /------------------------------------------------------------------------------------------------------*/
 
-/*----Test Params----//
+/*********************************Test Params**************************************
 
 aa.env.setValue("lookAheadDays",45);
 aa.env.setValue("daySpan",0);
 
-aa.env.setValue("expirationStatus","");
+aa.env.setValue("expirationStatus","Active");
 aa.env.setValue("newExpirationStatus","");
 
 aa.env.setValue("appStatus", "");
-aa.env.setValue("skipAppStatus","");
+aa.env.setValue("skipAppStatus","Expired,Permanently Discontinued,Revoked,Suspended");
 aa.env.setValue("newApplicationStatus", "");
 
 aa.env.setValue("fromDate","01/01/2016");
@@ -107,7 +107,7 @@ aa.env.setValue("toDate","12/31/2016");
 
 aa.env.setValue("emailAddress","batchscript@yahoo.com");
 
-*/
+***********************************************************************************/
 
 var appGroup = "MCD";
 var appTypeType = "Intrastate Motor Carrier";
@@ -188,14 +188,14 @@ function mainProcess(){
 	var capFilterType = 0;
 	var capFilterStatus = 0;
 	var capCount = 0;
+	var updateRec = false;
 	var expResult = aa.expiration.getLicensesByDate(expStatus, fromDate, toDate);
 	
 	if(expResult.getSuccess()){
 		theseExp = expResult.getOutput();
 		logDebug("Processing " + theseExp.length + " expiration records");
 		for(i in theseExp){
-			var updateRec = false;
-			var updateRefLp = false;
+			updateRec = false;
 			var thisCap = aa.cap.getCapByPK(theseExp[i].getCapID(),true).getOutput();
 			if(thisCap){
 				
@@ -217,8 +217,7 @@ function mainProcess(){
 								}
 								
 								if(updateRec){
-									var thisAltId = thisCap.getAltID();
-									logDebug(thisAltId+": "+thisCapType);
+									logDebug(thisCap.getAltID()+": "+thisCapType);
 									
 									if(newExpStatus.length > 0 && newAppStatus.length == 0){// update expiration status only
 										theseExp[i].setExpStatus(newExpStatus);
@@ -229,7 +228,6 @@ function mainProcess(){
 									
 									if(newAppStatus.length > 0 && newExpStatus.length == 0){// update CAP status only
 										updateAppStatus(newAppStatus, "updated by batch script", thisCapModel);
-										updateRefLp = true;
 										capCount++;
 									}
 									
@@ -238,17 +236,36 @@ function mainProcess(){
 										aa.expiration.editB1Expiration(theseExp[i].getB1Expiration());
 										updateAppStatus(newAppStatus, "updated by batch script", thisCapModel);
 										logDebug("Expiration status updated to "+newExpStatus);
-										updateRefLp = true;
-										
 										capCount++;
 									}
 									
-									if(updateRefLp){
-										//TODO update ref LP status for ACA search
+									//Check ASI field Operation Type
+									asiObj = aa.appSpecificInfo.getAppSpecificInfos(capId, "MOTOR CARRIER OPERATIONS", "Operation Type");
+									oppType = asiObj.getSuccess() && asiObj.getOutput().length > 0 ? ""+(asiObj.getOutput())[0].getChecklistComment() : "";
+
+									//Check LP Template field INTERSTATE UCR STATUS
+									capLicenseResult = aa.licenseScript.getLicenseProf(capId);
+									capLicenseArr = new Array();
+									if (capLicenseResult.getSuccess()){
+										capLicenseArr = capLicenseResult.getOutput();
+									}
 										
-										//update ref LP attributes
-										editRefLicProfAttribute(thisAltId,"INTRASTATE AUTHORITY STATUS",newExpStatus);
-										editRefLicProfAttribute(thisAltId,"INTRASTATE AUTHORITY STATUS DA",dateAdd(null,0));
+									if (capLicenseArr.length < 1){
+										logDebug("WARNING: no license professional available on the application: " + altId);
+									}
+
+									attrList = capLicenseArr[0].getAttributes();
+									for (i in attrList){
+										thisAttr = attrList[i];
+										if ( matches(""+thisAttr.getAttributeName(),"INTERSTATE UCR STATUS")){
+											statusUCR = ""+thisAttr.getAttributeValue();
+											break;
+										}
+									}	
+									if (oppType == "General Commodities" && statusUCR == "Active"){//Auto renewal of carriers with Active UCR
+										logDebug(br+"CVED: "+altId+", ");
+										licEditExpInfo("Active","12/31/"+(thisYear/*+1*/));
+										updatedRecs++;
 									}
 									
 								}else{ capFilterStatus++; continue; }

@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------------------------------/
-| Program: BATCH_AUTHORITY EXPIRATION AND RECORD STATUS UPDATE.js  Trigger: Batch
+| Program: BATCH_AUTHORITY_ACTIVE_UCR_AUTOMATIC_RENEWAL.js  Trigger: Batch
 | Client:
 |
 | Version 1.0 - Base Version. 11/01/08 JHS
@@ -90,24 +90,27 @@ if(batchJobResult.getSuccess()){
 |
 /------------------------------------------------------------------------------------------------------*/
 
-/*----Test Params----//
+/********************Test Params*********************************
 
 aa.env.setValue("lookAheadDays",45);
 aa.env.setValue("daySpan",0);
 
-aa.env.setValue("expirationStatus","");
-aa.env.setValue("newExpirationStatus","");
+aa.env.setValue("expirationStatus","Active");
+aa.env.setValue("newExpirationStatus","Active");
 
 aa.env.setValue("appStatus", "");
-aa.env.setValue("skipAppStatus","");
+aa.env.setValue("skipAppStatus","Expired,Permanently Discontinued,Revoked,Suspended");
 aa.env.setValue("newApplicationStatus", "");
 
-aa.env.setValue("fromDate","01/01/2016");
-aa.env.setValue("toDate","12/31/2016");
+aa.env.setValue("fromDate","12/31/2017");
+aa.env.setValue("toDate","12/31/2017");
+
+aa.env.setValue("cStart", 1000);
+aa.env.setValue("cLimit", 2000);
 
 aa.env.setValue("emailAddress","batchscript@yahoo.com");
 
-*/
+****************************************************************/
 
 var appGroup = "MCD";
 var appTypeType = "Intrastate Motor Carrier";
@@ -117,8 +120,8 @@ var appCategory = "NA";
 var lookAheadDays = aa.env.getValue("lookAheadDays"); // Number of days from today
 var daySpan = aa.env.getValue("daySpan"); // Days to search (6 if run weekly, 0 if daily, etc.)
 
-var expStatus = getParam("expirationStatus"); //   test for this expiration status
-var newExpStatus = getParam("newExpirationStatus"); //   update to this expiration status
+var expStatus = "Active"; //   test for this expiration status
+var newExpStatus = "Active"; //   update to this expiration status
 
 var appStatus = getParam("appStatus");
 var skipAppStatusArray = getParam("skipAppStatus").split(","); //   Skip records with one of these application statuses
@@ -130,6 +133,10 @@ var dFromDate = aa.date.parseDate(fromDate); //
 var dToDate = aa.date.parseDate(toDate); //
 
 var emailAddress = getParam("emailAddress"); //   email address to send log file to
+
+var cStart = getParam("cStart");
+var cLimit = getParam("cLimit");
+var ucrExpDateValidation = []; //array for updated CVED#'s that need to be validated.
 
 /*----------------------------------------------------------------------------------------------------/
 |
@@ -188,6 +195,10 @@ function mainProcess(){
 	var capFilterType = 0;
 	var capFilterStatus = 0;
 	var capCount = 0;
+	var capLimit = 0;
+	var today = new Date();
+	var thisYear = today.getFullYear();
+	
 	var expResult = aa.expiration.getLicensesByDate(expStatus, fromDate, toDate);
 	
 	if(expResult.getSuccess()){
@@ -198,8 +209,11 @@ function mainProcess(){
 			var updateRefLp = false;
 			var thisCap = aa.cap.getCapByPK(theseExp[i].getCapID(),true).getOutput();
 			if(thisCap){
-				
+				capLimit++;
+//				if(capLimit < cStart)continue;
+//				if(capLimit > cLimit)break;
 				var thisCapModel = thisCap.getCapID();
+				capId = thisCapModel;
 				
 				var thisCapType = thisCap.getCapType();
 				var thisCapTypeArray = thisCapType.toString().split("/");
@@ -218,37 +232,62 @@ function mainProcess(){
 								
 								if(updateRec){
 									var thisAltId = thisCap.getAltID();
-									logDebug(thisAltId+": "+thisCapType);
 									
-									if(newExpStatus.length > 0 && newAppStatus.length == 0){// update expiration status only
-										theseExp[i].setExpStatus(newExpStatus);
-										aa.expiration.editB1Expiration(theseExp[i].getB1Expiration());
-										logDebug("Expiration status updated to "+newExpStatus);
-										capCount++;
+									//Check ASI field Operation Type
+									asiObj = aa.appSpecificInfo.getAppSpecificInfos(capId, "MOTOR CARRIER OPERATIONS", "Operation Type");
+									oppType = asiObj.getSuccess() && asiObj.getOutput().length > 0 ? ""+(asiObj.getOutput())[0].getChecklistComment() : "";
+
+									//Check LP Template field INTERSTATE UCR STATUS
+									capLicenseResult = aa.licenseScript.getLicenseProf(capId);
+									capLicenseArr = new Array();
+									if (capLicenseResult.getSuccess()){
+										capLicenseArr = capLicenseResult.getOutput();
+									}
+									if (capLicenseArr.length < 1){
+										logDebug("WARNING: no license professional available on the application: " + thisAltId);
 									}
 									
-									if(newAppStatus.length > 0 && newExpStatus.length == 0){// update CAP status only
-										updateAppStatus(newAppStatus, "updated by batch script", thisCapModel);
-										updateRefLp = true;
-										capCount++;
+									//get trans lp attributes
+									attrList = capLicenseArr[0].getAttributes();
+									//get UCR Status
+									var gotUCRStatus = false;
+									var gotUCRExpDate = false;
+									var ucrExpYear = null;
+									for(i in attrList){
+										thisAttr = attrList[i];
+										if(!gotUCRStatus && matches(""+thisAttr.getAttributeName(),"INTERSTATE UCR STATUS")){
+											statusUCR = ""+thisAttr.getAttributeValue();
+											gotUCRStatus = true;
+										}
+										if(!gotUCRExpDate && matches(""+thisAttr.getAttributeName(),"INTERSTATE UCR EXPIRATION DATE")){
+											var ucrExpDate = ""+thisAttr.getAttributeValue();
+											gotUCRExpDate = true;
+											ucrExpYear = ucrExpDate == "null" ? "null" : new Date(ucrExpDate).getFullYear();
+										}
+										if(gotUCRStatus && gotUCRExpDate){
+											logDebug(br+"Found "+oppType+" carrier, CVED#: "+thisAltId+" With UCR Status: "+statusUCR+" and UCR Expiration Year: "+ucrExpYear);
+											break;
+										}
 									}
 									
-									if(newExpStatus.length > 0 && newAppStatus.length > 0){// update both CAP status and Expiration status
-										theseExp[i].setExpStatus(newExpStatus);
-										aa.expiration.editB1Expiration(theseExp[i].getB1Expiration());
-										updateAppStatus(newAppStatus, "updated by batch script", thisCapModel);
-										logDebug("Expiration status updated to "+newExpStatus);
-										updateRefLp = true;
+									//UCR auto renewal
+									if(oppType == "General Commodities" && statusUCR == "Active"){
+										//update Certificate of Authority Renewal Info tab
+										licEditExpInfo("Active","12/31/"+(thisYear+1));
+										capCount++;
 										
-										capCount++;
-									}
-									
-									if(updateRefLp){
-										//TODO update ref LP status for ACA search
+										//update Certificate of Authority trans LP Intrastate Expiration status and date
+										editLicProfAttribute(capId,thisAltId,"INTRASTATE AUTHORITY EXPIRATIO","12/31/"+(thisYear+1));
+										editLicProfAttribute(capId,thisAltId,"INTRASTATE AUTHORITY STATUS","Active");
 										
-										//update ref LP attributes
-										editRefLicProfAttribute(thisAltId,"INTRASTATE AUTHORITY STATUS",newExpStatus);
-										editRefLicProfAttribute(thisAltId,"INTRASTATE AUTHORITY STATUS DA",dateAdd(null,0));
+										//update ref LP Intrastate Expiration status and date
+										editRefLicProfAttribute(thisAltId,"INTRASTATE AUTHORITY EXPIRATIO","12/31/"+(thisYear+1));
+										editRefLicProfAttribute(thisAltId,"INTRASTATE AUTHORITY STATUS","Active");
+										
+										if(ucrExpYear != "null" && ucrExpYear < thisYear){
+											//add CVED num to validation list
+											ucrExpDateValidation.push(thisAltId);
+										}
 									}
 									
 								}else{ capFilterStatus++; continue; }
@@ -270,4 +309,10 @@ function mainProcess(){
 	if(capFilterType > 0) logDebug("Ignored due to application type: " + capFilterType);
 	if(capFilterStatus > 0) logDebug("Ignored due to CAP Status: " + capFilterStatus);
 	if(capCount > 0) logDebug("Total CAPS processed: " + capCount);
+	if(ucrExpDateValidation.length > 0){
+		logDebug("These Carriers were Automatically renewed but do not have a "+thisYear+" UCR Expiration Date:");
+		for(i in ucrExpDateValidation){
+			logDebug("CVED#: "+ucrExpDateValidation[i]);
+		}
+	}
 }

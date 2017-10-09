@@ -19,6 +19,8 @@ aa.env.setValue("appCategory","NA");
 aa.env.setValue("skipAppStatus","Expired,Permanently Discontinued,Revoked,Suspended");
 aa.env.setValue("appStatus","Active")
 aa.env.setValue("expStatus","Active")
+aa.env.setValue("runAsTest","Y") // Y to run against tesRecords only, N to run against entire database
+aa.env.setValue("testRecords","") // , separated altId's
 ***********************/
 
 /*------------------------------------------------------------------------------------------------------/

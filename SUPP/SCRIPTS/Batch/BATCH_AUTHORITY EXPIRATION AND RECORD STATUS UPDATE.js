@@ -90,9 +90,9 @@ if(batchJobResult.getSuccess()){
 |
 /------------------------------------------------------------------------------------------------------*/
 
-/*----Test Params----//
+/********************Test Params*********************************
 
-aa.env.setValue("lookAheadDays",45);
+aa.env.setValue("lookAheadDays",91);
 aa.env.setValue("daySpan",0);
 
 aa.env.setValue("expirationStatus","");
@@ -102,12 +102,12 @@ aa.env.setValue("appStatus", "");
 aa.env.setValue("skipAppStatus","");
 aa.env.setValue("newApplicationStatus", "");
 
-aa.env.setValue("fromDate","01/01/2016");
-aa.env.setValue("toDate","12/31/2016");
+aa.env.setValue("fromDate","12/31/2017");
+aa.env.setValue("toDate","12/31/2017");
 
 aa.env.setValue("emailAddress","batchscript@yahoo.com");
 
-*/
+****************************************************************/
 
 var appGroup = "MCD";
 var appTypeType = "Intrastate Motor Carrier";
@@ -192,7 +192,7 @@ function mainProcess(){
 	
 	if(expResult.getSuccess()){
 		theseExp = expResult.getOutput();
-		logDebug("Processing " + theseExp.length + " expiration records");
+		logDebug(br+"Processing " + theseExp.length + " expiration records");
 		for(i in theseExp){
 			var updateRec = false;
 			var updateRefLp = false;
@@ -218,7 +218,7 @@ function mainProcess(){
 								
 								if(updateRec){
 									var thisAltId = thisCap.getAltID();
-									logDebug(thisAltId+": "+thisCapType);
+									logDebug(br+thisAltId+": "+thisCapType);
 									
 									if(newExpStatus.length > 0 && newAppStatus.length == 0){// update expiration status only
 										theseExp[i].setExpStatus(newExpStatus);
