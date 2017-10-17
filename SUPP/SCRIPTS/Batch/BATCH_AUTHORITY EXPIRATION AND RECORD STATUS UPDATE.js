@@ -195,7 +195,7 @@ function mainProcess(){
 		logDebug(br+"Processing " + theseExp.length + " expiration records");
 		for(i in theseExp){
 			var updateRec = false;
-			var updateRefLp = false;
+			var updateLp = false;
 			var thisCap = aa.cap.getCapByPK(theseExp[i].getCapID(),true).getOutput();
 			if(thisCap){
 				
@@ -229,7 +229,7 @@ function mainProcess(){
 									
 									if(newAppStatus.length > 0 && newExpStatus.length == 0){// update CAP status only
 										updateAppStatus(newAppStatus, "updated by batch script", thisCapModel);
-										updateRefLp = true;
+										updateLp = true;
 										capCount++;
 									}
 									
@@ -238,17 +238,21 @@ function mainProcess(){
 										aa.expiration.editB1Expiration(theseExp[i].getB1Expiration());
 										updateAppStatus(newAppStatus, "updated by batch script", thisCapModel);
 										logDebug("Expiration status updated to "+newExpStatus);
-										updateRefLp = true;
+										updateLp = true;
 										
 										capCount++;
 									}
 									
-									if(updateRefLp){
+									if(updateLp){
 										//TODO update ref LP status for ACA search
 										
 										//update ref LP attributes
-										editRefLicProfAttribute(thisAltId,"INTRASTATE AUTHORITY STATUS",newExpStatus);
+										editRefLicProfAttribute(thisAltId,"INTRASTATE AUTHORITY STATUS",newAppStatus);
 										editRefLicProfAttribute(thisAltId,"INTRASTATE AUTHORITY STATUS DA",dateAdd(null,0));
+										
+										//update trans LP attributes
+										editLicProfAttribute(thisCapModel,thisAltId,"INTRASTATE AUTHORITY STATUS",newAppStatus);
+										editLicProfAttribute(thisCapModel,thisAltId,"INTRASTATE AUTHORITY STATUS DA",dateAdd(null,0));
 									}
 									
 								}else{ capFilterStatus++; continue; }
