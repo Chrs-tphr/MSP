@@ -96,7 +96,7 @@ function processRenewalPayment() {
 					aa.cap.updateAccessByACA(capID, "N");			
 					if (projectScriptModel.RENEWAL_COMPLETE.equals(projectScriptModel.getStatus())) {
 						if (activeLicense(parentLicenseCAPID)) {
-							// copyKeyInfo(capID, parentLicenseCAPID);
+							copyKeyInfo(capID, parentLicenseCAPID);
 							aa.cap.transferRenewCapDocument(partialCapID, parentLicenseCAPID, true);
 							logDebug("Transfer document for renew cap. Source Cap: " + partialCapID + ", target Cap:" + parentLicenseCAPID);
 		
@@ -149,7 +149,7 @@ function completeRenewalOnWorkflow() {
 						renewalCapProject.setStatus("Complete");
 						logDebug("license(" + parentLicenseCAPID + ") is activated.");
 						aa.cap.updateProject(renewalCapProject);
-						// copyKeyInfo(capID, parentLicenseCAPID);
+						copyKeyInfo(capID, parentLicenseCAPID);
 						aa.cap.transferRenewCapDocument(partialCapID, parentLicenseCAPID, false);
 						logDebug("Transfer document for renew cap. Source Cap: " + partialCapID + ", target Cap: " + parentLicenseCAPID);
 						if (sendLicEmails) aa.expiration.sendApprovedNoticEmailToCitizenUser(parentLicenseCAPID);
@@ -178,8 +178,8 @@ function convertRenewalToReal() {
 
 		var parentLicenseCAPID = result.getOutput();
 		//2 . Copy key information from child CAP to parent CAP.
-		// logDebug("Copying key information from renewal CAP to license CAP");
-		// copyKeyInfo(capID, parentLicenseCAPID);
+		logDebug("Copying key information from renewal CAP to license CAP");
+		copyKeyInfo(capID, parentLicenseCAPID);
 	
 		//3. move renew document to parent cap
 		aa.cap.transferRenewCapDocument(partialCapID, parentLicenseCAPID, true);
