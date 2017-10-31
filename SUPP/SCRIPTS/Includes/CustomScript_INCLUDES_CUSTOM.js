@@ -4,7 +4,8 @@
 |
 | Usage   : Custom Script Include.  Insert custom EMSE Function below and they will be available to all master scripts
 | 
-| Version 08.28.2017 08.27 pst
+| Version 10.31.2017 07.44 pst
+| 
 | Notes   : createRefLicProf - override to default the state if one is not provided
 |
 |         : createRefContactsFromCapContactsAndLink - testing new ability to link public users to new ref contacts
@@ -15,6 +16,8 @@
 |         : 08.08.2017 - 001: Added doCreateRefLP(), checks Application Review for previous Incomplete or Accepted status checkForExistingCertOfAuth()
 |         : 08.28.2017 - 001: Updated createCertOfAuth() to handle existing Cert scenario. Need to enhance to update existing if found.
 |         : 08.28.2017 - 002: Added checkForExistingCertOfAuth() that returns true if record is found and false if no record found
+|         : 10.26.2017 - 001: Added updateRefLpFieldsForAca() that copies attribute field data to standard lp fields so the info is available in ACA
+|         : 10.30.2017 - 001: Updated updateCertEqListFromRenewal() added updates to the RefLp InsuranceCo, ACAPermissions and the Certificate of Authority record status. 
 |
 /------------------------------------------------------------------------------------------------------*/
 
@@ -1364,6 +1367,17 @@ function createCertOfAuth() {
 				copyAppSpecific(newLicId,ignoreArr);
 				copyASITables(capId,newLicId);
 				linkMPSCtoPU(mpscNum, capId);
+				
+				//get refLp to edit standard fields for ACA display
+				var refLPModel = getRefLicenseProf(mpscNum);
+				if(!refLPModel){
+					logDebug("Ref LP " + refLPNum + " not found");
+				}else{
+					refLPModel.setAcaPermission(null);//the system interprets null as Y (this will display in ACA)
+					refLPModel.setInsuranceCo("Active");
+					aa.licenseScript.editRefLicenseProf(refLPModel);
+				}
+				
 				editRefLicProfAttribute(mpscNum,"INTRASTATE AUTHORITY EXPIRATIO","12/31/"+certFirstExpYear);//sets expiration year on Ref LP
 				editRefLicProfAttribute(mpscNum,"INTRASTATE AUTHORITY STATUS","Active");
 				editRefLicProfAttribute(mpscNum,"INTRASTATE AUTHORITY STATUS DA",cIDate);
@@ -1687,6 +1701,7 @@ function createRefLicProfFromLicProfMotorCarrier(){
 		logDebug("New license number = " + nextNumber);
 		newLic.setStateLicense(nextNumber); 
 		newLic.setLicState("MI");
+		newLic.setAcaPermission("N");
 		newLic.setAddress1(licProfScriptModel.getAddress1());
 		newLic.setAddress2(licProfScriptModel.getAddress2());
 		newLic.setAddress3(licProfScriptModel.getAddress3());
@@ -1902,6 +1917,7 @@ function updateCert(updateType){
 	pId = getParent();
 	existingCarrierNum = pId.getCustomID();
 	var cLic = getRefLicenseProf(existingCarrierNum);
+	
 	if (!cLic) {
 		logDebug("Existing carrier " + existingCarrierNum + " not found"); 
 		return;
@@ -1949,11 +1965,10 @@ function updateCert(updateType){
 			hazMat = AInfo["Hazardous Material"];
 			hga = AInfo["Household Goods Authority"];
 			psu = AInfo["Portable Storage Units"];
-			cc = AInfo["Continuous Contact"];
+			cc = AInfo["Continuous Contract"];
 
 			editAppSpecific("Operation Type", opType, pId);
 			cLic = getRefLicenseProf(existingCarrierNum);
-			cLic.setLicenseBoard(opType);
 
 			editAppSpecific("Auto Transport", autoTrans, pId);
 			editRefLicProfAttribute(existingCarrierNum,"AUTO TRANSPORT",autoTrans)
@@ -1967,9 +1982,13 @@ function updateCert(updateType){
 			editAppSpecific("Portable Storage Units", psu, pId);
 			editRefLicProfAttribute(existingCarrierNum,"PORTABLE STORAGE UNITS",psu);
 
-			editAppSpecific("Continuous Contact", cc, pId);
+			editAppSpecific("Continuous Contract", cc, pId);
 			editRefLicProfAttribute(existingCarrierNum,"CONTINUOUS CONTRACT", cc);
+			
 			cLic = getRefLicenseProf(existingCarrierNum);
+			
+			cLic.setLicenseBoard(opType);
+			
 			break;
 		case "TEMPDISCON":
 			opType = AInfo["Operation Type"];
@@ -1977,12 +1996,11 @@ function updateCert(updateType){
 			hazMat = AInfo["Hazardous Material"];
 			hga = AInfo["Household Goods Authority"];
 			psu = AInfo["Portable Storage Units"];
-			cc = AInfo["Continuous Contact"];
+			cc = AInfo["Continuous Contract"];
 			effDate = AInfo["Desired Effective Date"];
 
 			editAppSpecific("Operation Type", opType, pId);
 			cLic = getRefLicenseProf(existingCarrierNum);
-			cLic.setLicenseBoard(opType);
 
 			editAppSpecific("Auto Transport", autoTrans, pId);
 			editRefLicProfAttribute(existingCarrierNum,"AUTO TRANSPORT",autoTrans);
@@ -1996,27 +2014,50 @@ function updateCert(updateType){
 			editAppSpecific("Portable Storage Units", psu, pId);
 			editRefLicProfAttribute(existingCarrierNum,"PORTABLE STORAGE UNITS",psu);
 
-			editAppSpecific("Continuous Contact", cc, pId);
+			editAppSpecific("Continuous Contract", cc, pId);
 			editRefLicProfAttribute(existingCarrierNum,"CONTINUOUS CONTRACT", cc);
 
 			updateAppStatus("Temporarily Discontinued", "", pId);
+			
 			editRefLicProfAttribute(existingCarrierNum, "INTRASTATE AUTHORITY STATUS", "Temporarily Discontinued");
 			editRefLicProfAttribute(existingCarrierNum, "INTRASTATE AUTHORITY STATUS DA", dateAdd(effDate, 0));
+			
 			cLic = getRefLicenseProf(existingCarrierNum);
+			
+			//get refLp to edit standard fields for ACA display
+			cLic.setAcaPermission(null);//the system interprets null as Y (this will display in ACA)
+			cLic.setInsuranceCo("Temporarily Discontinued");
+			
+			cLic.setLicenseBoard(opType);
+			
 			break;
 		case "PERMDISCON":
 			effDate = AInfo["Desired Effective Date"];
 			updateAppStatus("Permanently Discontinued", "", pId);
+			
 			editRefLicProfAttribute(existingCarrierNum, "INTRASTATE AUTHORITY STATUS", "Permanently Discontinued");
 			editRefLicProfAttribute(existingCarrierNum, "INTRASTATE AUTHORITY STATUS DA", dateAdd(effDate, 0));
+			
 			cLic = getRefLicenseProf(existingCarrierNum);
+			
+			//get refLp to edit standard fields for ACA display
+			cLic.setAcaPermission("N");//the system interprets null as Y (this will display in ACA)
+			cLic.setInsuranceCo("Permanently Discontinued");
+			
 			break;
 		case "REINSTATE":
 			effDate = AInfo["Reinstate Service Effective Date"];
 			updateAppStatus("Active", "", pId);
+			
 			editRefLicProfAttribute(existingCarrierNum, "INTRASTATE AUTHORITY STATUS", "Active");
 			editRefLicProfAttribute(existingCarrierNum, "INTRASTATE AUTHORITY STATUS DA", dateAdd(effDate, 0));
+			
 			cLic = getRefLicenseProf(existingCarrierNum);
+			
+			//get refLp to edit standard fields for ACA display
+			cLic.setAcaPermission(null);//the system interprets null as Y (this will display in ACA)
+			cLic.setInsuranceCo("Active");
+			
 			break;
 		case "EQUIPLIST":
 			removeASITable("EQUIPMENT LIST", pId);
@@ -2290,6 +2331,13 @@ function activeVehicleCheck(){
 function updateCertEqListFromRenewal(){
 	logDebug("Trying to get cap id from Renewal");
 	var capID = getCapId();
+	
+	
+	var capResult = aa.cap.getCap(capID);
+	if (capResult.getSuccess()) {
+		var authCap = capResult.getOutput();
+	}
+	
 	logDebug("Renewal capID: "+capID);
 	logDebug("Trying to get cap id of carriers Certificate of Authority");
 	var result = aa.cap.getProjectByChildCapID(capID, "Renewal", "Complete");
@@ -2297,13 +2345,55 @@ function updateCertEqListFromRenewal(){
 		projectScriptModels = result.getOutput();
 		projectScriptModel = projectScriptModels[0];
 		var cCapID = projectScriptModel.getProjectID();
+		var aCapID = aa.cap.getCap(cCapID).getOutput();
 	}
+
 	
 	if (cCapID != null) {
-		logDebug("Found Certificate of Authority: "+cCapID);
+		var aAltId = aCapID.getCapModel().getAltID();
+		logDebug("Found Certificate of Authority: "+aAltId);
 		logDebug("Replacing Eq List on Certificate with Eq List from Renewal");
 		removeASITable("EQUIPMENT LIST", cCapID);
 		copyASITables(capId, cCapID);
+		
+		//get expiration date from Certificate of Authority
+		var expResult = aa.expiration.getLicensesByCapID(cCapID);
+		if(expResult.getSuccess()){
+			thisExp = expResult.getOutput();
+			var authExpDate = thisExp.getExpDate();
+			var aYear = parseInt(authExpDate.getYear());
+		}
+
+		//update Attr Intrastate Authority Expiration Date
+		
+		var aCapStatus = aCapID.getCapStatus(); logDebug("aCapStatus: "+aCapStatus);
+		if(!matches(aCapStatus,"Active","Temporarily Discontinued")){
+			//update auth status
+			updateAppStatus("Active","",cCapID);
+			//update Attr Intrastate Authority Status
+			editRefLicProfAttribute(aAltId, "INTRASTATE AUTHORITY STATUS", "Active");
+			//update Attr Intrastate Authority Status Date
+			editRefLicProfAttribute(aAltId, "INTRASTATE AUTHORITY STATUS DA", dateAdd(null, 0));
+			//update expiration
+			editRefLicProfAttribute(aAltId,"INTRASTATE AUTHORITY EXPIRATIO","12/31/"+aYear);
+			//get ref lp
+			var cLic = getRefLicenseProf(aAltId);
+			if(cLic){
+				//update InsuranceCo
+				cLic.setInsuranceCo("Active");
+				//update ACAPermission
+				cLic.setAcaPermission(null);//the system interprets null as Y (this will display in ACA)
+			}
+		}else{
+			//update expiration
+			editRefLicProfAttribute(aAltId,"INTRASTATE AUTHORITY EXPIRATIO","12/31/"+aYear);
+			//get ref lp
+			var cLic = getRefLicenseProf(aAltId);
+		}
+		//write ref lp update and replace trans lp on cert
+		modifyRefLPAndSubTran(cCapID, cLic);
+		
+		
 	}else{
 		logDebug("Did not find Certificate of Authority for Renewal");
 	}
@@ -2471,4 +2561,36 @@ function checkForExistingCertOfAuth(){
 		}
 	}
 	return exists;
+}
+
+function updateRefCarrierFieldsForAca(licNum){//no param needed when running on ref lp update, licNum param needed when running on non ref lp events
+	if(arguments.length < 1){
+		licNum = LicenseModel.stateLicense;
+	}
+	var refLicObj = new licenseProfObject(licNum,"Carrier");
+	if(refLicObj){
+		var cied = refLicObj.getAttribute("Cargo Insurance Expiration Date");
+		var pied = refLicObj.getAttribute("PL/PD Insurance Expiration Date");
+		var ias = refLicObj.getAttribute("Intrastate Authority Status");
+		
+		refLicObj.refLicModel.setBusinessLicExpDate(aa.date.parseDate(cied));
+		refLicObj.refLicModel.setInsuranceExpDate(aa.date.parseDate(pied));
+		refLicObj.refLicModel.setInsuranceCo(ias);
+		
+		if(matches(ias,"Active","Revoked","Temporarily Discontinued","Suspended")){
+			refLicObj.refLicModel.setAcaPermission(null);
+		}else{
+			refLicObj.refLicModel.setAcaPermission("N");
+		}
+		refLicObj.updateRecord();
+	}
+}
+
+function viewObj(obj){
+	for(var key in obj){
+		if(typeof obj[key] == 'function')
+			logDebug(key + '()');
+		else
+			logDebug(key + ": " + obj[key]);
+	}
 }
