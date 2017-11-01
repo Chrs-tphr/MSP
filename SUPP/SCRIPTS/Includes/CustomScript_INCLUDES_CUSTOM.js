@@ -2590,6 +2590,35 @@ function updateRefCarrierFieldsForAca(licNum){//no param needed when running on 
 	}
 }
 
+function assessRenewalLateFees(){
+	
+	//get the expiration date from the Certificate of Authority
+	var authExpDate;
+	
+	//get the the expiration year
+	var authExpYear = authExpDate.getFullYear();
+	
+	//get todays date
+	var tDate = new Date();
+	
+	//get current year
+	var tYear = tDate.getFullYear();
+	
+	//get current month
+	var tMonth = tDate.getMonth()+1;
+	
+	if(authExpYear == tYear){
+		if(tMonth == 12){
+			updateFee("LATE", "MCD_AUTH_RENEW", "FINAL", 1, "Y");
+		}
+	}else if(authExpYear == tYear+1){
+		updateFee("LATE", "MCD_AUTH_RENEW", "FINAL", 1, "Y");
+		updateFee("PENALTY", "MCD_AUTH_RENEW", "FINAL", tMonth, "Y");
+	}else{
+		logDebug("Renewal does not qualify for Late and/or Penalty fees.");
+	}
+}
+
 function viewObj(obj){
 	for(var key in obj){
 		if(typeof obj[key] == 'function')
