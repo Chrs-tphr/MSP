@@ -17,7 +17,8 @@
 |         : 08.28.2017 - 001: Updated createCertOfAuth() to handle existing Cert scenario. Need to enhance to update existing if found.
 |         : 08.28.2017 - 002: Added checkForExistingCertOfAuth() that returns true if record is found and false if no record found
 |         : 10.26.2017 - 001: Added updateRefLpFieldsForAca() that copies attribute field data to standard lp fields so the info is available in ACA
-|         : 10.30.2017 - 001: Updated updateCertEqListFromRenewal() added updates to the RefLp InsuranceCo, ACAPermissions and the Certificate of Authority record status. 
+|         : 10.30.2017 - 001: Updated updateCertEqListFromRenewal() added updates to the RefLp InsuranceCo, ACAPermissions and the Certificate of Authority record status. assessRenewalLateFees
+|         : 11.21.2017 - 001: Added assessRenewalLateFees()
 |
 /------------------------------------------------------------------------------------------------------*/
 
@@ -2591,31 +2592,36 @@ function updateRefCarrierFieldsForAca(licNum){//no param needed when running on 
 }
 
 function assessRenewalLateFees(){
-	
 	//get the expiration date from the Certificate of Authority
-	var authExpDate;
-	
-	//get the the expiration year
-	var authExpYear = authExpDate.getFullYear();
-	
-	//get todays date
-	var tDate = new Date();
-	
-	//get current year
-	var tYear = tDate.getFullYear();
-	
-	//get current month
-	var tMonth = tDate.getMonth()+1;
-	
-	if(authExpYear == tYear){
-		if(tMonth == 12){
-			updateFee("LATE", "MCD_AUTH_RENEW", "FINAL", 1, "Y");
+	var parentCapId = aa.env.getValue("ParentCapID");
+	logDebug("parentCapId: "+parentCapId);
+	var expResult = aa.expiration.getLicensesByCapID(parentCapId);
+	if(expResult.getSuccess()){
+		thisExp = expResult.getOutput();
+		var authExpDate = thisExp.getExpDate();
+		//get the the expiration year
+		var authExpYear = authExpDate.getFullYear();
+		
+		//get todays date
+		var tDate = new Date();
+		
+		//get current year
+		var tYear = tDate.getFullYear();
+		
+		//get current month
+		var tMonth = tDate.getMonth()+1;
+		
+		if(authExpYear == tYear && tMonth == 12){
+			updateFee("LATEFEE", "MCD_AUTH_RENEW", "FINAL", 1, "Y");
+		}else if(authExpYear == tYear+1){
+			updateFee("LATEFEE", "MCD_AUTH_RENEW", "FINAL", 1, "Y");
+			updateFee("PENALTY", "MCD_AUTH_RENEW", "FINAL", tMonth, "Y");
+		}else{
+			logDebug("Renewal is not Late.");
 		}
-	}else if(authExpYear == tYear+1){
-		updateFee("LATE", "MCD_AUTH_RENEW", "FINAL", 1, "Y");
-		updateFee("PENALTY", "MCD_AUTH_RENEW", "FINAL", tMonth, "Y");
 	}else{
-		logDebug("Renewal does not qualify for Late and/or Penalty fees.");
+		logDebug("Could not get Certificate of Authority to check expiration date for late fees");
+		return;
 	}
 }
 
