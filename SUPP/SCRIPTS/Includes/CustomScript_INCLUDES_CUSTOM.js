@@ -2613,7 +2613,6 @@ function assessRenewalLateFees(authCapId){
 		//get current month
 		var tMonth = tDate.getMonth()+1;
 		logDebug("tMonth: "+tMonth);
-		
 		if(authExpYear == tYear && tMonth == 12){
 			updateFee("LATEFEE", "MCD_AUTH_RENEW", "FINAL", 1, "Y");
 		}else if(authExpYear == tYear-1){
