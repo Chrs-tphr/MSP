@@ -2616,7 +2616,7 @@ function assessRenewalLateFees(authCapId){
 		
 		if(authExpYear == tYear && tMonth == 12){
 			updateFee("LATEFEE", "MCD_AUTH_RENEW", "FINAL", 1, "Y");
-		}else if(authExpYear+1 == tYear){
+		}else if(authExpYear == tYear-1){
 			updateFee("LATEFEE", "MCD_AUTH_RENEW", "FINAL", 1, "Y");
 			updateFee("PENALTY", "MCD_AUTH_RENEW", "FINAL", tMonth, "Y");
 		}else{
