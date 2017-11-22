@@ -18,7 +18,7 @@
 |         : 08.28.2017 - 002: Added checkForExistingCertOfAuth() that returns true if record is found and false if no record found
 |         : 10.26.2017 - 001: Added updateRefLpFieldsForAca() that copies attribute field data to standard lp fields so the info is available in ACA
 |         : 10.30.2017 - 001: Updated updateCertEqListFromRenewal() added updates to the RefLp InsuranceCo, ACAPermissions and the Certificate of Authority record status. assessRenewalLateFees
-|         : 11.21.2017 - 001: Added assessRenewalLateFees()
+|         : 11.21.2017 - 001: Added assessRenewalLateFees() and getParentLicenseCapID().
 |
 /------------------------------------------------------------------------------------------------------*/
 
@@ -2591,51 +2591,52 @@ function updateRefCarrierFieldsForAca(licNum){//no param needed when running on 
 	}
 }
 
-function assessRenewalLateFees(){
-	//get the expiration date from the Certificate of Authority
-	var parentCapId = aa.cap.getCapID("37078");
-	if(!parentCapId.getSuccess()){
-		logDebug("Could not get Certificate of Authority");
-		return;
-	}else{
-		var pCapId = parentCapId.getOutput();
-		logDebug("pCapId: "+pCapId);
+function assessRenewalLateFees(authCapId){
+	//get expiration date from Certificate of Authority
+	var expResult = aa.expiration.getLicensesByCapID(authCapId);
+	if(expResult.getSuccess()){
+		thisExp = expResult.getOutput();
+		var authExpDate = thisExp.getExpDate();
 		
+		//get the the expiration year
+		var authExpYear = parseInt(authExpDate.getYear());
+		logDebug("authExpYear: "+authExpYear);
 		
-		//get expiration date from Certificate of Authority
-		var expResult = aa.expiration.getLicensesByCapID(pCapId);
-		if(expResult.getSuccess()){
-			thisExp = expResult.getOutput();
-			var authExpDate = thisExp.getExpDate();
-			
-			//get the the expiration year
-			var authExpYear = parseInt(authExpDate.getYear());
-			logDebug("authExpYear: "+authExpYear);
-			
-			//get todays date
-			var tDate = new Date();
-			logDebug("tDate: "+tDate);
-			
-			//get current year
-			var tYear = tDate.getFullYear();
-			logDebug("tYear: "+tYear);
-			
-			//get current month
-			var tMonth = tDate.getMonth()+1;
-			logDebug("tMonth: "+tMonth);
-			
-			if(authExpYear == tYear && tMonth == 12){
-				updateFee("LATEFEE", "MCD_AUTH_RENEW", "FINAL", 1, "Y");
-			}else if(authExpYear+1 == tYear){
-				updateFee("LATEFEE", "MCD_AUTH_RENEW", "FINAL", 1, "Y");
-				updateFee("PENALTY", "MCD_AUTH_RENEW", "FINAL", tMonth, "Y");
-			}else{
-				logDebug("Renewal is not Late.");
-			}
+		//get todays date
+		var tDate = new Date();
+		logDebug("tDate: "+tDate);
+		
+		//get current year
+		var tYear = tDate.getFullYear();
+		logDebug("tYear: "+tYear);
+		
+		//get current month
+		var tMonth = tDate.getMonth()+1;
+		logDebug("tMonth: "+tMonth);
+		
+		if(authExpYear == tYear && tMonth == 12){
+			updateFee("LATEFEE", "MCD_AUTH_RENEW", "FINAL", 1, "Y");
+		}else if(authExpYear+1 == tYear){
+			updateFee("LATEFEE", "MCD_AUTH_RENEW", "FINAL", 1, "Y");
+			updateFee("PENALTY", "MCD_AUTH_RENEW", "FINAL", tMonth, "Y");
 		}else{
-			logDebug("Could not get Certificate of Authority to check expiration date for late fees");
-			return;
+			logDebug("Renewal is not Late.");
 		}
+	}else{
+		logDebug("Could not get Certificate of Authority to check expiration date for late fees");
+		return;
+	}
+}
+
+function getParentLicenseCapID(capid) {
+	if (capid == null || aa.util.instanceOfString(capid)) { return null; }
+	var result = aa.cap.getProjectByChildCapID(capid, "Renewal", "Incomplete");
+	if(result.getSuccess() ) {
+		projectScriptModels = result.getOutput();
+		projectScriptModel = projectScriptModels[0];
+		return projectScriptModel.getProjectID();
+	} else {
+		return getParentCapVIAPartialCap(capid);
 	}
 }
 
