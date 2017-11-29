@@ -73,9 +73,7 @@ else
 
  ***********************************************************************/
 
-var LIC_PROF_UDAPTE_DATA = getParam("inputDataFile");
-var DELIM = getParam("delimiter");
-var emailAddress = getParam("emailAddress");		
+
 
 /*----------------------------------------------------------------------------------------------------/
 |
