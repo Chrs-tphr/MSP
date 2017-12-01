@@ -4,7 +4,7 @@
 |
 | Usage   : Custom Script Include.  Insert custom EMSE Function below and they will be available to all master scripts
 | 
-| Version 11.27.2017 08.58 pst
+| Version 12.01.2017 12.35 pst
 | 
 | Notes   : createRefLicProf - override to default the state if one is not provided
 |
@@ -20,6 +20,7 @@
 |         : 10.30.2017 - 001: Updated updateCertEqListFromRenewal() added updates to the RefLp InsuranceCo, ACAPermissions and the Certificate of Authority record status.
 |         : 11.21.2017 - 001: Added assessRenewalLateFees() and getParentLicenseCapID().
 |         : 11.27.2017 - 001: Updates to assessRenewalLateFees() and updateCertEqListFromRenewal().
+|         : 12.01.2017 - 001: Commented out all lines populating bus lic and ins expiration from attr fields.
 |
 /------------------------------------------------------------------------------------------------------*/
 
