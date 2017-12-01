@@ -101,8 +101,6 @@ if (emailAddress.length)
 /-----------------------------------------------------------------------------------------------------*/
 
 function mainProcess() {
-
-	//------------------------------------START APPLICATION FOR AUTHORITY UPDATES----------------------------------------------
 	var msg = "";
 	var count = 0;
 	
@@ -117,14 +115,21 @@ function mainProcess() {
 	
 	//filter application for authority list by cap status
 	for (index in myCaps){
+
 		logDebug(msg);
 		msg = "";
-//		if(count>0)break;//testing
+
+		// if(count>10)break;
+
 		var cap = myCaps[index];
 		var capId = cap.getCapID();
+
 		var appId = capId.getCustomID();
+		
 		var capStatus = cap.getCapStatus();
+
 		msg += "App: "+appId+", AppStatus: "+capStatus+", ";
+		
 		if(capStatus == "Approved")continue;
 		//get trans lp
 		var capLpList = aa.licenseProfessional.getLicensedProfessionalsByCapID(capId).getOutput();
@@ -151,66 +156,14 @@ function mainProcess() {
 			editLicProfAttribute(capId, cvedNum,"INTRASTATE AUTHORITY STATUS", null);
 			//makes carrier not display in ACA
 			refLPModel.setAcaPermission("N");
+
 			//commit ref lp changes
 			aa.licenseScript.editRefLicenseProf(refLPModel);
+			
 			msg += "Cleared Ref LP."
 		}
 	}
-	logDebug("Processed "+count+" CVED #'s without Certificate of Authority.");
-	
-	
-	
-	
-	
-	//------------------------------------START CERTIFICATE OF AUTHORITY UPDATES----------------------------------------------
-	var msg = "";
-	var count = 0;
-	
-	var capResult = aa.cap.getByAppType("MCD", "Intrastate Motor Carrier", "Certificate of Authority", "NA");
-	if (capResult.getSuccess()) {
-		var myCaps = capResult.getOutput();
-		logDebug("Processing " + myCaps.length + " records");
-	} else {
-		logDebug("ERROR: Getting records, reason is: " + capResult.getErrorType() + ":" + capResult.getErrorMessage());
-	}
-	for (index in myCaps){
-
-//		if(count>0)break;//testing
-		
-		var msg = "";
-		var cap = myCaps[index];
-		var capId = cap.getCapID();
-		var cvedNum = capId.getCustomID();
-
-//		if(cvedNum != "37078")continue;//testing
-		
-		msg += "CVED#: "+cvedNum+", ";
-		var refLicObj = new licenseProfObject(cvedNum,"Carrier");
-		if(refLicObj){
-			var ias = refLicObj.getAttribute("Intrastate Authority Status");
-//			if(ias != "Temporary Discontinued Authority")continue;//testing
-			count++;
-			msg += "ias: "+ias;
-			refLicObj.refLicModel.setBusinessLicExpDate(null);
-			refLicObj.refLicModel.setInsuranceExpDate(null);
-			refLicObj.refLicModel.setInsuranceCo(ias);
-			if(matches(ias,"Temporary Discontinued Authority")){
-				refLicObj.setAttribute("Intrastate Authority Status", "Temporarily Discontinued");
-				refLicObj.refLicModel.setInsuranceCo("Temporarily Discontinued");
-				refLicObj.refLicModel.setAcaPermission(null);
-				editLicProfAttribute(capId, cvedNum,"INTRASTATE AUTHORITY STATUS", "Temporarily Discontinued");
-			}else if(matches(ias,"Active","Revoked","Temporarily Discontinued","Suspended")){
-				refLicObj.refLicModel.setAcaPermission(null);
-				editLicProfAttribute(capId, cvedNum,"INTRASTATE AUTHORITY STATUS", ias);
-			}else{
-				refLicObj.refLicModel.setAcaPermission("N");
-				editLicProfAttribute(capId, cvedNum,"INTRASTATE AUTHORITY STATUS", ias);
-			}
-			refLicObj.updateRecord();
-		}
-		logDebug(msg);
-	}
-	logDebug("Processed "+count+" CVED #'s with Certificate of Authority");
+	logDebug("Processed "+count+" CVED #'s");
 }
 
 function elapsed() {
