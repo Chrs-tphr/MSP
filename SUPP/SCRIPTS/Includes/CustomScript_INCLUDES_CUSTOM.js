@@ -4,7 +4,7 @@
 |
 | Usage   : Custom Script Include.  Insert custom EMSE Function below and they will be available to all master scripts
 | 
-| Version 10.31.2017 07.44 pst
+| Version 11.27.2017 08.58 pst
 | 
 | Notes   : createRefLicProf - override to default the state if one is not provided
 |
@@ -17,8 +17,9 @@
 |         : 08.28.2017 - 001: Updated createCertOfAuth() to handle existing Cert scenario. Need to enhance to update existing if found.
 |         : 08.28.2017 - 002: Added checkForExistingCertOfAuth() that returns true if record is found and false if no record found
 |         : 10.26.2017 - 001: Added updateRefLpFieldsForAca() that copies attribute field data to standard lp fields so the info is available in ACA
-|         : 10.30.2017 - 001: Updated updateCertEqListFromRenewal() added updates to the RefLp InsuranceCo, ACAPermissions and the Certificate of Authority record status. assessRenewalLateFees
+|         : 10.30.2017 - 001: Updated updateCertEqListFromRenewal() added updates to the RefLp InsuranceCo, ACAPermissions and the Certificate of Authority record status.
 |         : 11.21.2017 - 001: Added assessRenewalLateFees() and getParentLicenseCapID().
+|         : 11.27.2017 - 001: Updates to assessRenewalLateFees() and updateCertEqListFromRenewal().
 |
 /------------------------------------------------------------------------------------------------------*/
 
@@ -1752,7 +1753,7 @@ function createRefLicProfFromLicProfMotorCarrier(){
 			newLic.setLicenseBoard(AInfo["Operation Type"]);
 		}
 		
-		/* LP Template to LP  */
+		/* LP Template to LP  *//* -------not populating the bus lic and ins exp dates anymore.-------------
 		attrList = licProfScriptModel.getAttributes()
 		for ( i in attrList ) {
 			thisAttr = attrList[i]
@@ -1765,7 +1766,7 @@ function createRefLicProfFromLicProfMotorCarrier(){
 			if (name == "PL/PD INSURANCE EXP DATE" && val != "" && val != "null") {
 				newLic.setInsuranceExpDate(aa.date.parseDate(val));
 			}
-		}
+		}*/
 		
 		
 		myResult = aa.licenseScript.createRefLicenseProf(newLic);
@@ -1893,12 +1894,14 @@ function createRefLicProfFromLicProfMotorCarrier(){
 				val = ""+thisAttr.getAttributeValue()
 				editRefLicProfAttribute(rlpId,name,val == "null" ? null : val)
 			}
+			
+			/* -------not populating the bus lic and ins exp dates anymore.-------------
 			if (name == "CARGO INSURANCE EXP DATE" && val != "" && val != "null") {
 				newLic.setBusinessLicExpDate(aa.date.parseDate(val));
 			}
 			if (name == "PL/PD INSURANCE EXP DATE" && val != "" && val != "null") {
 				newLic.setInsuranceExpDate(aa.date.parseDate(val));
-			}
+			}*/
 		}
 
 		/* ASI to LP Template */
@@ -2295,12 +2298,13 @@ function updateRefLpFromTransLp() {
 				val = ""+thisAttr.getAttributeValue()
 				editRefLicProfAttribute(rlpId,name,val == "null" ? null : val)
 			}
+			/* -------not populating the bus lic and ins exp dates anymore.-------------
 			if (name == "CARGO INSURANCE EXP DATE" && val != "" && val != "null") {
 				newLic.setBusinessLicExpDate(aa.date.parseDate(val));
 			}
 			if (name == "PL/PD INSURANCE EXP DATE" && val != "" && val != "null") {
 				newLic.setInsuranceExpDate(aa.date.parseDate(val));
-			}
+			}*/
 		}
 
 		/* ASI to LP Template */
@@ -2390,10 +2394,18 @@ function updateCertEqListFromRenewal(){
 				cLic.setAcaPermission(null);//the system interprets null as Y (this will display in ACA)
 			}
 		}else{
+			//update Attr Intrastate Authority Status
+			editRefLicProfAttribute(aAltId, "INTRASTATE AUTHORITY STATUS", aCapStatus);
 			//update expiration
 			editRefLicProfAttribute(aAltId,"INTRASTATE AUTHORITY EXPIRATIO","12/31/"+aYear);
 			//get ref lp
 			var cLic = getRefLicenseProf(aAltId);
+			if(cLic){
+				//update InsuranceCo
+				cLic.setInsuranceCo(aCapStatus);
+				//update ACAPermission
+				cLic.setAcaPermission(null);//the system interprets null as Y (this will display in ACA)
+			}
 		}
 		//write ref lp update and replace trans lp on cert
 		modifyRefLPAndSubTran(cCapID, cLic);
@@ -2574,12 +2586,8 @@ function updateRefCarrierFieldsForAca(licNum){//no param needed when running on 
 	}
 	var refLicObj = new licenseProfObject(licNum,"Carrier");
 	if(refLicObj){
-		var cied = refLicObj.getAttribute("Cargo Insurance Expiration Date");
-		var pied = refLicObj.getAttribute("PL/PD Insurance Expiration Date");
 		var ias = refLicObj.getAttribute("Intrastate Authority Status");
 		
-		refLicObj.refLicModel.setBusinessLicExpDate(aa.date.parseDate(cied));
-		refLicObj.refLicModel.setInsuranceExpDate(aa.date.parseDate(pied));
 		refLicObj.refLicModel.setInsuranceCo(ias);
 		
 		if(matches(ias,"Active","Revoked","Temporarily Discontinued","Suspended")){
