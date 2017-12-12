@@ -4,7 +4,7 @@
 |
 | Usage   : Custom Script Include.  Insert custom EMSE Function below and they will be available to all master scripts
 | 
-| Version 12.01.2017 12.35 pst
+| Version 12.11.2017 09.27 pst
 | 
 | Notes   : createRefLicProf - override to default the state if one is not provided
 |
@@ -21,6 +21,8 @@
 |         : 11.21.2017 - 001: Added assessRenewalLateFees() and getParentLicenseCapID().
 |         : 11.27.2017 - 001: Updates to assessRenewalLateFees() and updateCertEqListFromRenewal().
 |         : 12.01.2017 - 001: Commented out all lines populating bus lic and ins expiration from attr fields.
+|         : 12.11.2017 - 001: Added updateRelationshipToAuthority()
+|         : 12.11.2017 - 002: Updated updateCert() fixed typo and uncommented copyAddresses()
 |
 /------------------------------------------------------------------------------------------------------*/
 
@@ -1966,7 +1968,7 @@ function updateCert(updateType){
 			if (cPhone && cPhone != "") cLic.setPhone1(cPhone);
 			/*if (cFax && cFax != "")*/ cLic.setFax(cFax); //Fax number can be removed from the Certificate of Authority and Ref LP
 			if (cEmail && cEmail != "") cLic.setEMailAddress(cEmail);
-			// copyAddreses(null, pId);
+			copyAddresses(capId, pId);
 			break;
 		case "DISCONTINUANCE":
 			opType = AInfo["Operation Type"];
@@ -2650,6 +2652,18 @@ function getParentLicenseCapID(capid) {
 		return projectScriptModel.getProjectID();
 	} else {
 		return getParentCapVIAPartialCap(capid);
+	}
+}
+
+function updateRelationshipToAuthority(){
+	var cved = getMPSCNumFromLP();
+	logDebug("Relating : "+capIDString+" to the parent Authority: "+cved);
+	var urrResult = updateRecordRelation(cved, capIDString, "ADDITION");
+	
+	if(urrResult){
+		logDebug("Relationship updated successfully")
+	}else{
+		logDebug("***WARNING*** Relationship was not updated")
 	}
 }
 
