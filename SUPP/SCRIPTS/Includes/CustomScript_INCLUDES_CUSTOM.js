@@ -4,7 +4,7 @@
 |
 | Usage   : Custom Script Include.  Insert custom EMSE Function below and they will be available to all master scripts
 | 
-| Version 12.11.2017 09.27 pst
+| Version 12.18.2017 11.54 pst
 | 
 | Notes   : createRefLicProf - override to default the state if one is not provided
 |
@@ -23,6 +23,8 @@
 |         : 12.01.2017 - 001: Commented out all lines populating bus lic and ins expiration from attr fields.
 |         : 12.11.2017 - 001: Added updateRelationshipToAuthority()
 |         : 12.11.2017 - 002: Updated updateCert() fixed typo and uncommented copyAddresses()
+|         : 12.18.2017 - 001: Updated createCertOfAuth() added section for updating existing Certificate of Authority
+|         : 12.18.2017 - 002: Added removeCapContacts() and removeCapAddresses()
 |
 /------------------------------------------------------------------------------------------------------*/
 
@@ -1339,7 +1341,7 @@ function assessEquipListDecalFee() { //CG 12.17.2015 = GC = $100 and has half ye
 function createCertOfAuth() {
 	mpscNum = getMPSCNumFromLP();
 	if (mpscNum != null) {
-		var existResult = aa.cap.getCapID(mpscNum).getOutput();
+		var existResult = aa.cap.getCapID(mpscNum).getSuccess();
 		if(!existResult){
 		 	newLicId = createParent(appTypeArray[0], appTypeArray[1], "Certificate of Authority", "NA",null);
 			if (newLicId) {
@@ -1424,10 +1426,84 @@ function createCertOfAuth() {
 				}
 			}
 		}else{
-			logDebug("Certificate of Authority has already been issued for this CVED number");
-		}
-		if(existResult){
-			//run reinstate script
+			//Update existing Authority
+			logDebug("A Certificate of Authority has already been issued for this CVED number attempting to update the existing Authority.");
+			//get existing Authority capId
+			var authCapId = aa.cap.getCapID(mpscNum).getOutput();
+			
+			//link app to existing Certificate of Authority
+			addParent(mpscNum);
+			
+			//link the RefLP to the public user on the new App
+			linkMPSCtoPU(mpscNum, capId);//getting the pu from new app and linking to the updated refLp
+			
+			//copy ASI from app to cert
+			var ignore = lookup("EMSE:ASI Copy Exceptions","License/*/*/*"); 
+			var ignoreArr = new Array();
+			if(ignore != null) ignoreArr = ignore.split("|"); 
+			copyAppSpecific(authCapId,ignoreArr);
+			
+			//remove existing ASIT on Auth and copy ASIT from app to cert
+			removeASITable("EQUIPMENT LIST",authCapId);
+			removeASITable("CONTINUOUS CONTRACT",authCapId);
+			copyASITables(capId, authCapId);
+			
+			//remove existing addresses on Auth
+			removeCapAddresses(capId);
+			
+			//copy address from app to cert
+			copyAddresses(capId, authCapId);
+			
+			//remove existing Contacts on Auth and copy from app to cert
+			removeCapContacts(authCapId);
+			copyContacts(capId, authCapId);
+
+			//Update existing reference LP with current info from app
+			updateRefLpFromTransLp();
+			
+			//edit Ref LP for issuance and copy to existing Authority
+			editRefLicProfAttribute(mpscNum,"INTRASTATE AUTHORITY EXPIRATIO","12/31/"+certFirstExpYear);//sets expiration year on Ref LP
+			editRefLicProfAttribute(mpscNum,"INTRASTATE AUTHORITY STATUS","Active");
+			editRefLicProfAttribute(mpscNum,"INTRASTATE AUTHORITY STATUS DA",cIDate);
+			editRefLicProfAttribute(mpscNum,"INTRASTATE AUTH APP DATE",fileDate);
+			
+			var refLPModel = getRefLicenseProf(mpscNum);
+			if(!refLPModel){
+				logDebug("Ref LP " + refLPNum + " not found");
+			}else{
+				refLPModel.setAcaPermission(null);//the system interprets null as Y (this will display in ACA)
+				refLPModel.setInsuranceCo("Active");
+				modifyRefLPAndSubTran(authCapId, refLPModel);
+			}
+			
+			//Updates for issuance Record Status
+			updateAppStatus("Active","",authCapId);
+			//Updates for issuance Expiration Status and date
+			thisLic = new licenseObject(mpscNum,authCapId);
+			thisLic.setStatus("Active");
+
+            var certIssueDate = getStatusDateinTaskHistory("Certification", "Issued");
+            var certIssueMonth = certIssueDate.getMonth() + 1;
+            var certIssueDay = certIssueDate.getDate();
+            var certIssueYear = 1900 + certIssueDate.getYear();
+            if (certIssueDate != null && certIssueMonth > 9){
+                var certFirstExpYear = certIssueYear + 1;
+                thisLic.setExpiration("12/31/"+certFirstExpYear);
+            }
+            else{
+                certFirstExpYear = certIssueYear;
+                thisLic.setExpiration("12/31/"+certFirstExpYear);
+            }
+            logDebug("The Certificate of Authority was issued on " + certIssueDate + " and will expire on 12/31/" + certFirstExpYear + ".");
+
+			if (certIssueDate != null){
+				var cIDate = certIssueMonth+"/"+certIssueDay+"/"+certIssueYear;
+				thisLic.setIssued(cIDate);
+				logDebug("RefLP License Issued Date updated to: "+cIDate);
+			}
+			
+			//update results
+			logDebug("The existing Authority: "+mpscNum+" was updated and has been reissued");
 		}
 	}
 }
@@ -2664,6 +2740,35 @@ function updateRelationshipToAuthority(){
 		logDebug("Relationship updated successfully")
 	}else{
 		logDebug("***WARNING*** Relationship was not updated")
+	}
+}
+
+function removeCapContacts(recordCapId){
+	var cons = aa.people.getCapContactByCapID(recordCapId).getOutput();
+	for(x in cons){
+		conSeqNum = cons[x].getPeople().getContactSeqNumber();
+		aa.people.removeCapContact(recordCapId, conSeqNum);
+	}
+}
+
+function removeCapAddresses(capId){
+	var addrScriptResult = aa.address.getAddressByCapId(capId);
+	if(addrScriptResult.getSuccess()){
+		var authAddrList = addrScriptResult.getOutput()
+		if(authAddrList.length > 0){
+			//get address ID
+			for(addr in authAddrList){
+				var thisAddr = authAddrList[addr];
+				var thisAddrId = thisAddr.getAddressId();
+				//remove address from Authority
+				aa.address.removeAddress(capId, thisAddrId);
+				logDebug("Addresses successfully removed from cap")
+			}
+		}else{
+			logDebug("No addresses on cap")
+		}
+	}else{
+		logDebug("Could not get address list from cap")
 	}
 }
 
