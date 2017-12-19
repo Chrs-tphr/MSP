@@ -1449,7 +1449,7 @@ function createCertOfAuth() {
 			copyASITables(capId, authCapId);
 			
 			//remove existing addresses on Auth
-			removeCapAddresses(capId);
+			removeCapAddresses(authCapId);
 			
 			//copy address from app to cert
 			copyAddresses(capId, authCapId);
@@ -1460,21 +1460,6 @@ function createCertOfAuth() {
 
 			//Update existing reference LP with current info from app
 			updateRefLpFromTransLp();
-			
-			//edit Ref LP for issuance and copy to existing Authority
-			editRefLicProfAttribute(mpscNum,"INTRASTATE AUTHORITY EXPIRATIO","12/31/"+certFirstExpYear);//sets expiration year on Ref LP
-			editRefLicProfAttribute(mpscNum,"INTRASTATE AUTHORITY STATUS","Active");
-			editRefLicProfAttribute(mpscNum,"INTRASTATE AUTHORITY STATUS DA",cIDate);
-			editRefLicProfAttribute(mpscNum,"INTRASTATE AUTH APP DATE",fileDate);
-			
-			var refLPModel = getRefLicenseProf(mpscNum);
-			if(!refLPModel){
-				logDebug("Ref LP " + refLPNum + " not found");
-			}else{
-				refLPModel.setAcaPermission(null);//the system interprets null as Y (this will display in ACA)
-				refLPModel.setInsuranceCo("Active");
-				modifyRefLPAndSubTran(authCapId, refLPModel);
-			}
 			
 			//Updates for issuance Record Status
 			updateAppStatus("Active","",authCapId);
@@ -1500,6 +1485,21 @@ function createCertOfAuth() {
 				var cIDate = certIssueMonth+"/"+certIssueDay+"/"+certIssueYear;
 				thisLic.setIssued(cIDate);
 				logDebug("RefLP License Issued Date updated to: "+cIDate);
+			}
+			
+			//edit Ref LP for issuance and copy to existing Authority
+			editRefLicProfAttribute(mpscNum,"INTRASTATE AUTHORITY EXPIRATIO","12/31/"+certFirstExpYear);//sets expiration year on Ref LP
+			editRefLicProfAttribute(mpscNum,"INTRASTATE AUTHORITY STATUS","Active");
+			editRefLicProfAttribute(mpscNum,"INTRASTATE AUTHORITY STATUS DA",cIDate);
+			editRefLicProfAttribute(mpscNum,"INTRASTATE AUTH APP DATE",fileDate);
+			
+			var refLPModel = getRefLicenseProf(mpscNum);
+			if(!refLPModel){
+				logDebug("Ref LP " + refLPNum + " not found");
+			}else{
+				refLPModel.setAcaPermission(null);//the system interprets null as Y (this will display in ACA)
+				refLPModel.setInsuranceCo("Active");
+				modifyRefLPAndSubTran(authCapId, refLPModel);
 			}
 			
 			//update results
