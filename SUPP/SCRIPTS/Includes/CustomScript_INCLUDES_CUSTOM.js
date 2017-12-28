@@ -26,6 +26,7 @@
 |         : 12.18.2017 - 001: Updated createCertOfAuth() added section for updating existing Certificate of Authority
 |         : 12.18.2017 - 002: Added removeCapContacts() and removeCapAddresses()
 |         : 12.21.2017 - 001: Updated createRefLicProfFromLicProfMotorCarrier, removed duplicate code and finalized the update existing functionality
+|         : 12.21.2017 - 002: Added new functions removeCapLPs() and addRefLpToCap() to standardize lp, reflp and authority updates
 |
 /------------------------------------------------------------------------------------------------------*/
 
@@ -1428,7 +1429,7 @@ function createCertOfAuth() {
 			}
 		}else{
 			//Update existing Authority
-			logDebug("A Certificate of Authority has already been issued for this CVED number attempting to update the existing Authority.");
+			logDebug("A Certificate of Authority has already been issued for this CVED number, updating the existing Authority.");
 			//get existing Authority capId
 			var authCapId = aa.cap.getCapID(mpscNum).getOutput();
 			
@@ -1438,29 +1439,21 @@ function createCertOfAuth() {
 			//link the RefLP to the public user on the new App
 			linkMPSCtoPU(mpscNum, capId);//getting the pu from new app and linking to the updated refLp
 			
-			//copy ASI from app to cert
+			//remove existing ASIT, Addresses, Contacts and LPs from Auth
+			removeASITable("EQUIPMENT LIST",authCapId);
+			removeASITable("CONTINUOUS CONTRACT",authCapId);
+			removeCapAddresses(authCapId);
+			removeCapContacts(authCapId);
+			removeCapLPs(authCapId);
+			
+			//copy updated ASI, ASIT, Address, Contacts from App to Authority
 			var ignore = lookup("EMSE:ASI Copy Exceptions","License/*/*/*"); 
 			var ignoreArr = new Array();
 			if(ignore != null) ignoreArr = ignore.split("|"); 
 			copyAppSpecific(authCapId,ignoreArr);
-			
-			//remove existing ASIT on Auth and copy ASIT from app to cert
-			removeASITable("EQUIPMENT LIST",authCapId);
-			removeASITable("CONTINUOUS CONTRACT",authCapId);
 			copyASITables(capId, authCapId);
-			
-			//remove existing addresses on Auth
-			removeCapAddresses(authCapId);
-			
-			//copy address from app to cert
 			copyAddresses(capId, authCapId);
-			
-			//remove existing Contacts on Auth and copy from app to cert
-			removeCapContacts(authCapId);
 			copyContacts(capId, authCapId);
-
-			//Update existing reference LP with current info from app
-			updateRefLpFromTransLp();
 			
 			//Updates for issuance Record Status
 			updateAppStatus("Active","",authCapId);
@@ -1487,6 +1480,9 @@ function createCertOfAuth() {
 				thisLic.setIssued(cIDate);
 				logDebug("RefLP License Issued Date updated to: "+cIDate);
 			}
+
+			//Update existing reference LP with current info from app
+			updateRefLpFromTransLp();
 			
 			//edit Ref LP for issuance and copy to existing Authority
 			editRefLicProfAttribute(mpscNum,"INTRASTATE AUTHORITY EXPIRATIO","12/31/"+certFirstExpYear);//sets expiration year on Ref LP
@@ -1795,8 +1791,7 @@ function createRefLicProfFromLicProfMotorCarrier(){
 	}
 
 	if(matches(existingCarrier,"No","N")){
-		newLic.setStateLicense(nextNumber); 
-		newLic.setLicState("MI");
+		newLic.setStateLicense(nextNumber);
 		newLic.setAcaPermission("N");
 	}
 	newLic.setAddress1(licProfScriptModel.getAddress1());
@@ -1824,7 +1819,7 @@ function createRefLicProfFromLicProfMotorCarrier(){
 	newLic.setPhone2(licProfScriptModel.getPhone2());
 	newLic.setSelfIns(licProfScriptModel.getSelfIns());
 	newLic.setState(licProfScriptModel.getState());
-	newLic.setLicState(licProfScriptModel.getState());
+	newLic.setLicState("MI");
 	newLic.setSuffixName(licProfScriptModel.getSuffixName());
 	newLic.setZip(licProfScriptModel.getZip());
 	newLic.setFein(licProfScriptModel.getFein());
@@ -1889,26 +1884,9 @@ function createRefLicProfFromLicProfMotorCarrier(){
 		editRefLicProfAttribute(rlpId,"PORTABLE STORAGE UNITS",AInfo["Portable Storage Units"]);
 	
 	//Replace the trans LP on the app with the new Ref LP
-	var capLicenseResult = aa.licenseProfessional.getLicenseProf(capId);
-	var capLicenseArr = new Array();
-	if (capLicenseResult.getSuccess())
-		{ capLicenseArr = capLicenseResult.getOutput();  }
-		
-	if(capLicenseArr != null){
-		for(capLic in capLicenseArr){
-			if(capLicenseArr[capLic].getLicenseType()+"" == newLic.getLicenseType()+""){
-				aa.licenseProfessional.removeLicensedProfessional(capLicenseArr[capLic]);
-				break;
-			}				
-		}
-		capListResult = aa.licenseScript.associateLpWithCap(capId,newLic);
-		if (capListResult.getSuccess()) {
-			logDebug("Successfully associated ref LP with record")
-		}
-		else {
-			logDebug("Error associating ref lp with record " + capListResult.getErrorMessage())
-		}
-	}
+	removeCapLPs(capId);
+	addRefLpToCap(newLic,capId);
+	
 	return rlpId;
 }
 
@@ -2092,13 +2070,13 @@ function modifyRefLPAndSubTran(itemCap, newLic) {
 			}
 			
 		}
-		capListResult = aa.licenseScript.associateLpWithCap(itemCap,newLic);
-		if (capListResult.getSuccess()) {
-			logDebug("Successfully associated ref LP with record")
-		}
-		else {
-			logDebug("Error associating ref lp with record " + capListResult.getErrorMessage())
-		}
+	}
+	capListResult = aa.licenseScript.associateLpWithCap(itemCap,newLic);
+	if (capListResult.getSuccess()) {
+		logDebug("Successfully associated ref LP with record")
+	}
+	else {
+		logDebug("Error associating ref lp with record " + capListResult.getErrorMessage())
 	}
 }
 
@@ -2205,13 +2183,13 @@ function getTodayJs(){
 
 function updateRefLpFromTransLp() {
 	capLicenseResult = aa.licenseScript.getLicenseProf(capId);
-	if (capLicenseResult.getSuccess())
+	if(capLicenseResult.getSuccess())
 		capLicenseArr = capLicenseResult.getOutput();
-	else { 
+	else{ 
 		logDebug("**ERROR: getting lic prof: " + capLicenseResult.getErrorMessage()); 
 		return false;
 	}
-	if (!capLicenseArr.length) {
+	if(!capLicenseArr.length){
 		logDebug("WARNING: no license professional available on the application:"); 
 		return false; 
 	}
@@ -2223,11 +2201,10 @@ function updateRefLpFromTransLp() {
 	existingCarrier = rlpId;
 	logDebug("Existing carrier = " + existingCarrier);
 	
-	if (true) {
-		
+	if(existingCarrier){
 		existingCarrierNum = existingCarrier;
 		var newLic = getRefLicenseProf(existingCarrierNum);//gets the refLP by license number. Using the TSI field but can be switched to used the rlpId
-		if (!newLic) {
+		if(!newLic){
 			logDebug("Existing carrier " + existingCarrierNum + " not found"); return;
 		}
 		logDebug("Modifying existing carrier " + existingCarrierNum);
@@ -2258,7 +2235,7 @@ function updateRefLpFromTransLp() {
 		newLic.setPhone2(licProfScriptModel.getPhone2());
 		newLic.setSelfIns(licProfScriptModel.getSelfIns());
 		newLic.setState(licProfScriptModel.getState());
-		newLic.setLicState(licProfScriptModel.getState());
+		newLic.setLicState("MI");
 		newLic.setSuffixName(licProfScriptModel.getSuffixName());
 		newLic.setZip(licProfScriptModel.getZip());
 		newLic.setFein(licProfScriptModel.getFein());
@@ -2278,6 +2255,8 @@ function updateRefLpFromTransLp() {
 		if(AInfo["Operation Type"] != null) {
 			newLic.setLicenseBoard(AInfo["Operation Type"]);
 		}
+		//save updated ref Lp obj to the database
+		aa.licenseScript.editRefLicenseProf(newLic);
 		
 		/* LP Template to LP Template */
 		attrList = licProfScriptModel.getAttributes()
@@ -2289,26 +2268,17 @@ function updateRefLpFromTransLp() {
 				val = ""+thisAttr.getAttributeValue()
 				editRefLicProfAttribute(rlpId,name,val == "null" ? null : val)
 			}
-			/* -------not populating the bus lic and ins exp dates anymore.-------------
-			if (name == "CARGO INSURANCE EXP DATE" && val != "" && val != "null") {
-				newLic.setBusinessLicExpDate(aa.date.parseDate(val));
-			}
-			if (name == "PL/PD INSURANCE EXP DATE" && val != "" && val != "null") {
-				newLic.setInsuranceExpDate(aa.date.parseDate(val));
-			}*/
 		}
 
-		/* ASI to LP Template */
-		if(AInfo["Auto Transport"] != null) 
-			editRefLicProfAttribute(rlpId,"AUTO TRANSPORT",AInfo["Auto Transport"])
-		if(AInfo["Hazardous Material"] != null) 
-			editRefLicProfAttribute(rlpId,"HAZ MAT CARRIER",AInfo["Hazardous Material"])
-		if(AInfo["Household Goods Authority"] != null) 
-			editRefLicProfAttribute(rlpId,"HOUSEHOLD GOODS AUTHORITY",AInfo["Household Goods Authority"])
-		if(AInfo["Continuous Contract"] != null) 
-			editRefLicProfAttribute(rlpId,"CONTINUOUS CONTRACT",AInfo["Continuous Contract"])
-		if(AInfo["Portable Storage Units"] != null) 
-			editRefLicProfAttribute(rlpId,"PORTABLE STORAGE UNITS",AInfo["Portable Storage Units"]);	
+		/* ASI to Ref LP Template */
+		editRefLicProfAttribute(rlpId,"AUTO TRANSPORT",AInfo["Auto Transport"])
+		editRefLicProfAttribute(rlpId,"HAZ MAT CARRIER",AInfo["Hazardous Material"])
+		editRefLicProfAttribute(rlpId,"HOUSEHOLD GOODS AUTHORITY",AInfo["Household Goods Authority"])
+		editRefLicProfAttribute(rlpId,"CONTINUOUS CONTRACT",AInfo["Continuous Contract"])
+		editRefLicProfAttribute(rlpId,"PORTABLE STORAGE UNITS",AInfo["Portable Storage Units"]);
+		
+		newLic = getRefLicenseProf(existingCarrierNum);
+		modifyRefLPAndSubTran(capId, newLic)
 	}
 	return rlpId
 }
@@ -2681,6 +2651,44 @@ function removeCapAddresses(capId){
 		}
 	}else{
 		logDebug("Could not get address list from cap")
+	}
+}
+
+function removeCapLPs(capId){
+	var capLicenseResult = aa.licenseProfessional.getLicenseProf(capId);
+	var capLicenseArr = new Array();
+	if(capLicenseResult.getSuccess()){
+		capLicenseArr = capLicenseResult.getOutput();
+	}
+	if(capLicenseArr != null){
+		for(capLic in capLicenseArr){
+			aa.licenseProfessional.removeLicensedProfessional(capLicenseArr[capLic]);
+		}
+	}
+}
+
+function addRefLpToCap(refLpId,capId){
+	capListResult = aa.licenseScript.associateLpWithCap(capId,refLpId);
+	if (capListResult.getSuccess()) {
+		logDebug("Successfully associated ref LP with record")
+	}
+	else {
+		logDebug("Error associating ref lp with record " + capListResult.getErrorMessage())
+	}
+}
+
+function copyAppAsiToTransLp(capId){
+	//get trans lp, assume only 1
+	
+	/* ASI to Ref LP object*/
+	if(AInfo["Worker's Compensation Exempt"] != null){
+		if(AInfo["Worker's Compensation Exempt"] == "Yes" || AInfo["Worker's Compensation Exempt"] == "Y") 
+			newLic.setWcExempt("Y");
+		else
+			newLic.setWcExempt("N");
+	}
+	if(AInfo["Operation Type"] != null){
+		newLic.setLicenseBoard(AInfo["Operation Type"]);
 	}
 }
 
