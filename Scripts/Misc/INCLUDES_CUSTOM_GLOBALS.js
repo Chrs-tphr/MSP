@@ -1,1 +1,0 @@
-if(matches(currentUserID, "ADMIN", "CGODWIN", "AUSTINV", "HOWER")) showDebug = 3; //user names need to be added in ALL CAPS!
